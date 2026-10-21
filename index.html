@@ -1797,11 +1797,10 @@
               <h2 class="text-sm font-bold">Paket Layanan</h2>
             </div>
             <button
-              type="button"
               onclick="openServiceFormModal()"
-              class="bg-white/20 hover:bg-white/30 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1"
+              class="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center"
             >
-              <i class="fa-solid fa-user-plus"></i> Baru
+              <i class="fa-solid fa-plus text-xs"></i>
             </button>
           </div>
 
@@ -1820,6 +1819,12 @@
             ></div>
           </div>
 
+          <button
+            onclick="openServiceFormModal()"
+            class="absolute bottom-16 right-5 bg-brand hover:bg-indigo-600 text-white text-xs font-bold px-4 py-3 rounded-full shadow-lg shadow-indigo-500/40 flex items-center gap-2 z-10"
+          >
+            <i class="fa-solid fa-plus"></i> Tambah
+          </button>
         </div>
 
         <!-- ================= 5. MODAL: TAMBAH / EDIT LAYANAN ================= -->
@@ -2340,7 +2345,8 @@
       const IS_PREVIEW = false; // true = data dummy lokal (Canvas/uji coba), false = terhubung ke Google Sheets
       // Di Blogger: isi GAS_URL dengan URL Web App Apps Script (berakhiran /exec).
       // Bila dibuka langsung dari Web App Apps Script, GAS_URL tidak dipakai (otomatis google.script.run).
-      const GAS_URL = "https://script.google.com/macros/s/AKfycbyndMTKuDF_UAvDi7IhwRVs1RbQ6L6SjRNJEEneTEUkFLJxxms4O3PhWgailh6YGgfWgw/exec";
+      const GAS_URL =
+        "https://script.google.com/macros/s/AKfycbzO254rEh04-BshnJe1LVn2QbmoHrDMsx4y36VeF-Xf3hm7H4fvPYrJvqFLibEi1PtM/exec";
       const USE_GAS_RUN =
         typeof google !== "undefined" && !!google.script && !!google.script.run;
 
@@ -4722,14 +4728,7 @@
             const hp = String(item.customer.no_hp || "").toLowerCase();
             const alamat = String(item.customer.alamat || "").toLowerCase();
             return nama.includes(q) || hp.includes(q) || alamat.includes(q);
-          })
-          .sort((a, b) =>
-            String(a.customer.nama_pelanggan || "").localeCompare(
-              String(b.customer.nama_pelanggan || ""),
-              "id",
-              { sensitivity: "base", numeric: true },
-            ),
-          );
+          });
 
         const container = document.getElementById("customer-list-container");
         const paginationContainer = document.getElementById(
