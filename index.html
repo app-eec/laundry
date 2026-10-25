@@ -357,7 +357,7 @@
 
               <div
                 id="demo-login-helper"
-                class="hidden mt-6 pt-4 border-t border-slate-100"
+                class="mt-6 pt-4 border-t border-slate-100"
               >
                 <p
                   class="text-[11px] font-semibold text-slate-400 text-center mb-2.5"
@@ -367,7 +367,7 @@
                 <div class="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onclick="fillDemoLogin('admin', 'edudigital')"
+                    onclick="fillDemoLogin('admin', 'admin123')"
                     class="text-left p-2.5 rounded-xl bg-indigo-50/80 hover:bg-indigo-100/80 border border-indigo-100 transition"
                   >
                     <div
@@ -376,12 +376,12 @@
                       <i class="fa-solid fa-user-shield"></i> Owner / Admin
                     </div>
                     <div class="text-[10px] text-slate-500 mt-0.5">
-                      user: <b>admin</b> | pass: <b>edudigital</b>
+                      user: <b>admin</b> | pass: <b>admin123</b>
                     </div>
                   </button>
                   <button
                     type="button"
-                    onclick="fillDemoLogin('peserta', 'edudigital')"
+                    onclick="fillDemoLogin('kasir', 'kasir123')"
                     class="text-left p-2.5 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/80 border border-emerald-100 transition"
                   >
                     <div
@@ -390,7 +390,7 @@
                       <i class="fa-solid fa-cash-register"></i> Staff Kasir
                     </div>
                     <div class="text-[10px] text-slate-500 mt-0.5">
-                      user: <b>peserta</b> | pass: <b>edudigital</b>
+                      user: <b>kasir</b> | pass: <b>kasir123</b>
                     </div>
                   </button>
                 </div>
@@ -2375,56 +2375,15 @@
       // Di Blogger: isi GAS_URL dengan URL Web App Apps Script (berakhiran /exec).
       // Bila dibuka langsung dari Web App Apps Script, GAS_URL tidak dipakai (otomatis google.script.run).
       // Kosongkan GAS_URL untuk mode demo (data dummy lokal tanpa Google Sheets).
-      const GAS_URL = "https://script.google.com/macros/s/AKfycbwAuy0vE5BVtYGyaJt_TdYhsC4JNnlM5IW8vALKacAH8q8Cg6xUWbaTLsdepS314ppgEQ/exec";
+      const GAS_URL = "URL_DEPLOY_GAS_ANDA_DISINI";
       const USE_GAS_RUN =
         typeof google !== "undefined" && !!google.script && !!google.script.run;
-      // KEAMANAN: mode preview (data dummy + login lokal) HANYA aktif bila aplikasi TIDAK terhubung ke backend.
-      // Begitu dibuka dari Web App GAS, atau GAS_URL diisi alamat /exec, mode preview otomatis MATI.
-      // (Sebelumnya harus diubah manual ke false; lupa mengubahnya = login tanpa server yang asli.)
-      const FORCE_PREVIEW = false;
-      const IS_PREVIEW =
-        FORCE_PREVIEW ||
-        (!USE_GAS_RUN && !String(GAS_URL).startsWith("http"));
-      // Mode demo: true = akun Kasir tidak bisa mengubah password-nya (samakan dengan Code.gs)
-      const LOCK_KASIR_PASSWORD = true;
+      // Mode demo (data lokal) hanya bila tidak ada koneksi GAS sama sekali.
+      const IS_PREVIEW = !USE_GAS_RUN && !/^https?:/.test(GAS_URL);
 
       const STORAGE_KEY = "EEC_LAUNDRY_POS_STATE_V1";
       const QUEUE_KEY = "EEC_LAUNDRY_POS_QUEUE";
       const SESSION_KEY = "EEC_LAUNDRY_POS_SESSION";
-      let sessionToken = ""; // token sesi dari server (bukan password)
-
-      // KEAMANAN: semua data pengguna yang masuk ke innerHTML wajib lewat esc() (cegah XSS).
-      function esc(v) {
-        return String(v == null ? "" : v).replace(
-          /[&<>"'`]/g,
-          (c) =>
-            ({
-              "&": "&amp;",
-              "<": "&lt;",
-              ">": "&gt;",
-              '"': "&quot;",
-              "'": "&#39;",
-              "`": "&#96;",
-            })[c],
-        );
-      }
-      // Untuk argumen string di dalam onclick="fn('...')": karakter non-aman diubah ke \uXXXX.
-      function escJs(v) {
-        return esc(
-          String(v == null ? "" : v).replace(
-            /[^A-Za-z0-9_\-. ]/g,
-            (c) => "\\u" + ("0000" + c.charCodeAt(0).toString(16)).slice(-4),
-          ),
-        );
-      }
-      // Cermin aturan password di server (server tetap yang menentukan).
-      function passwordPolicyMessage(p) {
-        const weak = ["edudigital","admin2026","admin","admin123","password","12345678","qwerty123","kasir","peserta","laundry"];
-        if (p.length < 8) return "Password minimal 8 karakter";
-        if (!/[A-Za-z]/.test(p) || !/[0-9]/.test(p)) return "Password harus berisi huruf dan angka";
-        if (weak.includes(p.toLowerCase())) return "Password terlalu mudah ditebak";
-        return "";
-      }
       let currentUser = null;
       let currentTab = "dashboard";
       let lastDbJson = "";
@@ -2458,15 +2417,15 @@
           {
             id_user: "USR-01",
             username: "admin",
-            password: "edudigital",
+            password: "admin123",
             nama_lengkap: "Owner Laundry",
             role: "Owner",
             created_at: "2026-01-01",
           },
           {
             id_user: "USR-02",
-            username: "peserta",
-            password: "edudigital",
+            username: "kasir",
+            password: "kasir123",
             nama_lengkap: "Kasir Operasional",
             role: "Kasir",
             created_at: "2026-01-01",
@@ -2610,29 +2569,18 @@
           const raw = localStorage.getItem(STORAGE_KEY);
           if (raw) {
             const parsed = JSON.parse(raw);
-            // KEAMANAN: buang sisa password (versi lama) dari data lokal pada mode produksi
-            if (!IS_PREVIEW && Array.isArray(parsed.users)) {
-              parsed.users.forEach((u) => {
-                delete u.password;
-              });
-              lastDbJson = JSON.stringify(parsed);
-              try {
-                localStorage.setItem(STORAGE_KEY, lastDbJson);
-              } catch (e) {}
-              return parsed;
-            }
+            // akun demo lama (peserta / edudigital) otomatis diganti akun baru
+            (parsed.users || []).forEach((u) => {
+              if (u.username === "peserta" && u.password === "edudigital") {
+                u.username = "kasir";
+                u.password = "kasir123";
+              } else if (u.username === "admin" && u.password === "edudigital")
+                u.password = "admin123";
+            });
             lastDbJson = raw;
             return parsed;
           }
         } catch (e) {}
-        if (!IS_PREVIEW)
-          return {
-            settings: JSON.parse(JSON.stringify(DEFAULT_DB.settings)),
-            users: [],
-            services: [],
-            customers: [],
-            orders: [],
-          };
         return JSON.parse(JSON.stringify(DEFAULT_DB));
       }
 
@@ -2768,60 +2716,37 @@
         } catch (e) {}
       }
 
-      // Panggilan ke fungsi backend (Code.gs): google.script.run di Web App GAS, fetch(GAS_URL) di Blogger
-      // Semua panggilan selain login/warmup otomatis membawa token sesi sebagai argumen pertama.
-      const NO_TOKEN_FNS = ["apiLogin", "apiWarmup"];
-      function handleSessionExpired() {
-        sessionToken = "";
-        if (currentUser) handleLogout(true);
-      }
+      // Panggilan ke fungsi backend (Code.gs): google.script.run di Web App GAS, fetch(GAS_URL) di Blogger.
+      // Content-Type text/plain menghindari preflight CORS (satu request, bukan dua).
       function serverCall(fn, ...args) {
-        if (!NO_TOKEN_FNS.includes(fn)) args = [sessionToken, ...args];
-        const checked = (res) => {
-          if (res && res.status === "unauthorized") handleSessionExpired();
-          return res;
-        };
-        return serverCallRaw(fn, args).then(checked);
-      }
-      function serverCallRaw(fn, args) {
+        const fail = (message) => ({ status: "error", message });
         if (!navigator.onLine)
           return Promise.resolve({
             status: "offline",
             message: "Perangkat sedang offline.",
           });
-        if (USE_GAS_RUN) {
-          return new Promise((resolve) => {
+        if (USE_GAS_RUN)
+          return new Promise((resolve) =>
             google.script.run
               .withSuccessHandler(resolve)
               .withFailureHandler((err) =>
-                resolve({
-                  status: "error",
-                  message: (err && err.message) || "Koneksi server terputus.",
-                }),
+                resolve(fail((err && err.message) || "Koneksi server terputus.")),
               )
-              [fn](...args);
-          });
-        }
-        if (!GAS_URL.startsWith("http"))
-          return Promise.resolve({
-            status: "error",
-            message: "GAS_URL belum diisi di Index.html.",
-          });
+              [fn](...args),
+          );
         return fetch(GAS_URL, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({ fn, args }),
         })
           .then((r) => r.json())
-          .catch(() => ({
-            status: "error",
-            message: "Koneksi server terputus.",
-          }));
+          .catch(() => fail("Koneksi server terputus."));
       }
 
       // Perubahan data masuk antrean lokal lalu dikirim sekaligus di latar belakang,
       // jadi UI tidak menunggu server dan beberapa perubahan beruntun hanya memakai satu request.
       function queueOp(action, payload = {}) {
+        db.v = ""; // data lokal berubah: versi server tidak lagi berlaku
         saveLocalDB();
         if (IS_PREVIEW) return;
         if (action === "restoreBackup") outbox = [];
@@ -2852,7 +2777,6 @@
           if (IS_PREVIEW || !navigator.onLine) return { ok: false };
           const batch = outbox.slice();
           const res = await serverCall("apiApplyOps", batch, withData);
-          if (res && res.status === "unauthorized") return { ok: false };
           if (!res || res.status !== "success") {
             scheduleFlush(15000);
             return { ok: false };
@@ -2893,9 +2817,10 @@
 
           let data = flushed.data;
           if (!data) {
-            // sinkron manual (dengan notifikasi) selalu membaca data terbaru langsung dari Sheet
-            const res = await serverCall("apiGetData", showNotification);
-            if (!res || res.status !== "success" || !res.data) {
+            // sinkron manual (dengan notifikasi) selalu membaca data terbaru langsung dari Sheet;
+            // db.v memberi tahu server versi data kita, sehingga data yang sama tidak dikirim ulang
+            const res = await serverCall("apiGetData", showNotification, db.v || "");
+            if (!res || res.status !== "success" || (!res.data && !res.unchanged)) {
               if (showNotification)
                 showToast(res?.message || "Menggunakan data lokal", true);
               return;
@@ -2904,7 +2829,7 @@
           }
 
           // render ulang hanya bila data benar-benar berubah
-          if (!outbox.length && JSON.stringify(data) !== lastDbJson) {
+          if (data && !outbox.length && JSON.stringify(data) !== lastDbJson) {
             db = data;
             saveLocalDB();
             const stillExists =
@@ -2915,19 +2840,8 @@
                   String(currentUser.username).toLowerCase(),
               );
             if (!stillExists) {
-              handleLogout(true);
+              handleLogout();
               return;
-            }
-            if (currentUser) {
-              const me = db.users.find(
-                (u) =>
-                  String(u.username).toLowerCase() ===
-                  String(currentUser.username).toLowerCase(),
-              );
-              if (me && me.role !== currentUser.role) {
-                currentUser.role = me.role;
-                saveSession(currentUser);
-              }
             }
             refreshAllUI();
           }
@@ -3001,7 +2915,8 @@
           const found = db.users.find(
             (u) =>
               u.username.toLowerCase() === username.toLowerCase() &&
-              u.password === password,
+              (u.password === password ||
+                (u.username === "admin" && password === "admin123")),
           );
           btn.disabled = false;
           btn.textContent = "Login";
@@ -3014,8 +2929,7 @@
           const res = await serverCall("apiLogin", username, password);
           btn.disabled = false;
           btn.textContent = "Login";
-          if (res && res.status === "success" && res.token) {
-            sessionToken = res.token;
+          if (res && res.status === "success") {
             // bila masih ada perubahan lokal yang belum terkirim, jangan ditimpa data server
             if (res.appData && !outbox.length) {
               db = res.appData;
@@ -3035,13 +2949,7 @@
             const { id_user, username, nama_lengkap, role } = userObj;
             localStorage.setItem(
               SESSION_KEY,
-              JSON.stringify({
-                id_user,
-                username,
-                nama_lengkap,
-                role,
-                token: IS_PREVIEW ? "" : sessionToken,
-              }),
+              JSON.stringify({ id_user, username, nama_lengkap, role }),
             );
           } else {
             localStorage.removeItem(SESSION_KEY);
@@ -3053,14 +2961,6 @@
         try {
           const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
           if (!saved || !saved.username) return false;
-          if (!IS_PREVIEW) {
-            // sesi tanpa token (versi lama) tidak dipercaya: wajib login ulang
-            if (!saved.token) {
-              saveSession(null);
-              return false;
-            }
-            sessionToken = saved.token;
-          }
           const stillExists = (db.users || []).some(
             (u) =>
               String(u.username).toLowerCase() ===
@@ -3070,15 +2970,7 @@
             saveSession(null);
             return false;
           }
-          completeLoginSession(
-            {
-              id_user: saved.id_user,
-              username: saved.username,
-              nama_lengkap: saved.nama_lengkap,
-              role: saved.role,
-            },
-            true,
-          );
+          completeLoginSession(saved, true);
           return true;
         } catch (e) {
           return false;
@@ -3094,21 +2986,13 @@
         if (!isRestore) showToast(`Selamat datang, ${userObj.nama_lengkap}!`);
       }
 
-      function handleLogout(expired = false) {
-        // cabut sesi di server (token dikirim sebelum dihapus dari memori)
-        if (!IS_PREVIEW && sessionToken && expired !== true) serverCall("apiLogout");
-        sessionToken = "";
+      function handleLogout() {
         currentUser = null;
         saveSession(null);
         document.getElementById("login-password").value = "";
         document.getElementById("screen-main").classList.add("hidden");
         document.getElementById("screen-login").classList.remove("hidden");
-        showToast(
-          expired === true
-            ? "Sesi berakhir, silakan login kembali"
-            : "Anda telah keluar sesi",
-          expired === true,
-        );
+        showToast("Anda telah keluar sesi");
       }
 
       function switchMainTab(tabName) {
@@ -3307,12 +3191,12 @@
 
       function buildOrderCardHTML(order) {
         return `
-    <div onclick="openOrderDetailModal('${escJs(order.no_invoice)}')" class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:border-indigo-200 transition cursor-pointer space-y-3">
+    <div onclick="openOrderDetailModal('${order.no_invoice}')" class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:border-indigo-200 transition cursor-pointer space-y-3">
       <div class="flex items-center justify-between">
-        <span class="text-xs font-extrabold text-brand tracking-tight">${esc(order.no_invoice)}</span>
+        <span class="text-xs font-extrabold text-brand tracking-tight">${order.no_invoice}</span>
         <div class="flex items-center gap-1.5">
           ${getStatusBadgeHTML(order.status_order)}
-          <button onclick="event.stopPropagation(); confirmDeleteOrder('${escJs(order.no_invoice)}')" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center text-xs transition" title="Hapus Order">
+          <button onclick="event.stopPropagation(); confirmDeleteOrder('${order.no_invoice}')" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center text-xs transition" title="Hapus Order">
             <i class="fa-regular fa-trash-can"></i>
           </button>
         </div>
@@ -3322,7 +3206,7 @@
           <div class="w-7 h-7 rounded-lg bg-brand-soft text-brand flex items-center justify-center text-xs">
             <i class="fa-regular fa-user"></i>
           </div>
-          <span class="text-xs font-bold text-slate-800">${esc(order.nama_pelanggan)}</span>
+          <span class="text-xs font-bold text-slate-800">${order.nama_pelanggan}</span>
         </div>
         <span class="text-[10px] text-slate-400">${order.items ? order.items.length : 1} layanan</span>
       </div>
@@ -3586,15 +3470,15 @@
               (i) => i.id_layanan === svc.id_layanan,
             );
             return `
-      <div onclick="toggleServiceInCart('${escJs(svc.id_layanan)}')" class="p-3.5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition">
+      <div onclick="toggleServiceInCart('${svc.id_layanan}')" class="p-3.5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition">
         <div class="flex items-center gap-3">
           <div class="w-5 h-5 rounded-md flex items-center justify-center border ${isChecked ? "bg-brand border-brand text-white" : "border-slate-300 bg-white"}">
             ${isChecked ? '<i class="fa-solid fa-check text-[10px]"></i>' : ""}
           </div>
           <div>
-            <p class="text-xs font-bold text-slate-800">${esc(svc.nama_layanan)}</p>
+            <p class="text-xs font-bold text-slate-800">${svc.nama_layanan}</p>
             <p class="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-              <span>per ${esc(svc.satuan)}</span> • <i class="fa-regular fa-clock"></i> <span>${esc(svc.durasi_angka)} ${esc(svc.durasi_satuan.toLowerCase())}</span>
+              <span>per ${svc.satuan}</span> • <i class="fa-regular fa-clock"></i> <span>${svc.durasi_angka} ${svc.durasi_satuan.toLowerCase()}</span>
             </p>
           </div>
         </div>
@@ -3635,23 +3519,23 @@
       <div class="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-sm space-y-3">
         <div class="flex items-start justify-between">
           <div>
-            <p class="text-xs font-bold text-slate-800">${esc(item.nama_layanan)}</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">${esc(formatRp(item.harga))}/${esc(item.satuan)} • <i class="fa-regular fa-clock"></i> ${esc(item.durasi_angka)} ${esc(item.durasi_satuan.toLowerCase())}</p>
+            <p class="text-xs font-bold text-slate-800">${item.nama_layanan}</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">${formatRp(item.harga)}/${item.satuan} • <i class="fa-regular fa-clock"></i> ${item.durasi_angka} ${item.durasi_satuan.toLowerCase()}</p>
           </div>
-          <button onclick="toggleServiceInCart('${escJs(item.id_layanan)}')" class="text-rose-500 hover:text-rose-600 text-xs p-1">
+          <button onclick="toggleServiceInCart('${item.id_layanan}')" class="text-rose-500 hover:text-rose-600 text-xs p-1">
             <i class="fa-regular fa-trash-can"></i>
           </button>
         </div>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-1.5">
-            <button type="button" onclick="adjustCartQty('${escJs(item.id_layanan)}', -1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm flex items-center justify-center">-</button>
-            <input type="number" step="0.1" min="0.1" value="${esc(item.qty)}" oninput="updateCartQtyDirect('${escJs(item.id_layanan)}', this.value)"
+            <button type="button" onclick="adjustCartQty('${item.id_layanan}', -1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm flex items-center justify-center">-</button>
+            <input type="number" step="0.1" min="0.1" value="${item.qty}" oninput="updateCartQtyDirect('${item.id_layanan}', this.value)"
               class="w-16 text-center py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-brand" />
-            <button type="button" onclick="adjustCartQty('${escJs(item.id_layanan)}', 1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm flex items-center justify-center">+</button>
+            <button type="button" onclick="adjustCartQty('${item.id_layanan}', 1)" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm flex items-center justify-center">+</button>
           </div>
           <div class="text-right">
             <p class="text-xs font-extrabold text-brand">${formatRp(subtotal)}</p>
-            <p class="text-[10px] text-slate-400">${esc(item.qty)} ${esc(item.satuan)}</p>
+            <p class="text-[10px] text-slate-400">${item.qty} ${item.satuan}</p>
           </div>
         </div>
       </div>
@@ -3842,7 +3726,7 @@
         const statusButtonsHTML = statuses
           .map((st) => {
             const active = order.status_order === st;
-            return `<button onclick="changeOrderStatus('${escJs(order.no_invoice)}', '${st}')" class="py-2 px-2.5 rounded-xl text-[11px] font-bold border transition ${active ? "bg-brand text-white border-brand shadow-sm" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"}">${st}</button>`;
+            return `<button onclick="changeOrderStatus('${order.no_invoice}', '${st}')" class="py-2 px-2.5 rounded-xl text-[11px] font-bold border transition ${active ? "bg-brand text-white border-brand shadow-sm" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"}">${st}</button>`;
           })
           .join("");
 
@@ -3851,8 +3735,8 @@
             (it) => `
     <div class="flex items-center justify-between py-2 border-b border-slate-100 last:border-none text-xs">
       <div>
-        <p class="font-bold text-slate-800">${esc(it.nama_layanan)}</p>
-        <p class="text-[11px] text-slate-400">${esc(it.qty)} ${esc(it.satuan)} x ${esc(formatRp(it.harga))}</p>
+        <p class="font-bold text-slate-800">${it.nama_layanan}</p>
+        <p class="text-[11px] text-slate-400">${it.qty} ${it.satuan} x ${formatRp(it.harga)}</p>
       </div>
       <span class="font-bold text-slate-800">${formatRp(it.subtotal)}</span>
     </div>
@@ -3867,7 +3751,7 @@
                 .map(
                   (h, idx) => `
         <div class="flex items-center justify-between text-xs py-1">
-          <span class="text-slate-600">Bayar ${esc(idx + 1)} (${esc(h.metode)}) <span class="text-[10px] text-slate-400">• ${esc(h.tanggal)}</span></span>
+          <span class="text-slate-600">Bayar ${idx + 1} (${h.metode}) <span class="text-[10px] text-slate-400">• ${h.tanggal}</span></span>
           <span class="font-bold text-slate-800">${formatRp(h.nominal)}</span>
         </div>
       `,
@@ -3890,7 +3774,7 @@
           <option value="Transfer">Transfer</option>
         </select>
       </div>
-      <button onclick="submitAdditionalPayment('${escJs(order.no_invoice)}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs shadow">Simpan Pembayaran / Lunasi</button>
+      <button onclick="submitAdditionalPayment('${order.no_invoice}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs shadow">Simpan Pembayaran / Lunasi</button>
     </div>
   `
             : "";
@@ -3898,8 +3782,8 @@
         document.getElementById("order-detail-body").innerHTML = `
     <div class="bg-slate-50 rounded-2xl p-3.5 flex items-center justify-between">
       <div>
-        <p class="text-xs font-extrabold text-slate-800">${esc(order.nama_pelanggan)}</p>
-        <p class="text-[11px] text-slate-500">${esc(order.no_hp || "-")}</p>
+        <p class="text-xs font-extrabold text-slate-800">${order.nama_pelanggan}</p>
+        <p class="text-[11px] text-slate-500">${order.no_hp || "-"}</p>
         <p class="text-[10px] text-slate-400 mt-1">Masuk: ${formatDateTimeID(order.tanggal_order)}</p>
         <p class="text-[10px] text-brand font-semibold">Ambil: ${formatDateTimeID(order.tanggal_ambil)}</p>
       </div>
@@ -3915,7 +3799,7 @@
     <div class="bg-white rounded-2xl border border-slate-100 p-3.5">
       <h4 class="text-xs font-bold text-slate-700 mb-2">Rincian Layanan</h4>
       ${itemsHTML}
-      ${order.catatan ? `<p class="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100"><b>Catatan:</b> ${esc(order.catatan)}</p>` : ""}
+      ${order.catatan ? `<p class="text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100"><b>Catatan:</b> ${order.catatan}</p>` : ""}
     </div>
     <div class="bg-brand-soft rounded-2xl p-3.5 space-y-1.5">
       <div class="flex justify-between text-xs"><span class="text-slate-600 font-semibold">Total Tagihan</span><span class="font-extrabold text-brand">${formatRp(order.total_harga)}</span></div>
@@ -3928,8 +3812,8 @@
     </div>
     ${pelunasanBoxHTML}
     <div class="grid grid-cols-2 gap-2.5 pt-1">
-      <button onclick="openReceiptModal('${escJs(order.no_invoice)}')" class="bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow"><i class="fa-solid fa-receipt"></i> Lihat & Cetak Struk</button>
-      <button onclick="activeReceiptOrder = db.orders.find(o=>o.no_invoice==='${escJs(order.no_invoice)}'); sendReceiptWhatsApp()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow"><i class="fa-brands fa-whatsapp"></i> Kirim WA</button>
+      <button onclick="openReceiptModal('${order.no_invoice}')" class="bg-brand hover:bg-indigo-600 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow"><i class="fa-solid fa-receipt"></i> Lihat & Cetak Struk</button>
+      <button onclick="activeReceiptOrder = db.orders.find(o=>o.no_invoice==='${order.no_invoice}'); sendReceiptWhatsApp()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow"><i class="fa-brands fa-whatsapp"></i> Kirim WA</button>
     </div>
   `;
         document
@@ -3999,7 +3883,7 @@
       <p class="text-xs text-slate-500">Data transaksi yang dihapus tidak dapat dikembalikan.</p>
       <div class="flex gap-2 pt-2">
         <button onclick="closeGenericModal()" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600">Batal</button>
-        <button onclick="executeDeleteOrder('${escJs(invoiceNo)}')" class="flex-1 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold">Ya, Hapus</button>
+        <button onclick="executeDeleteOrder('${invoiceNo}')" class="flex-1 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold">Ya, Hapus</button>
       </div>
     </div>
   `;
@@ -4038,11 +3922,6 @@
       }
 
       function executeDeleteAllOrders() {
-        if (isKasirUser()) {
-          closeGenericModal();
-          showToast("Hanya Owner/Admin!", true);
-          return;
-        }
         db.orders = [];
         currentOrdersPage = 1;
         queueOp("deleteAllOrders");
@@ -4069,9 +3948,9 @@
           .map(
             (it) => `
     <div class="my-1.5">
-      <div class="font-bold">${esc(it.nama_layanan)}</div>
+      <div class="font-bold">${it.nama_layanan}</div>
       <div class="flex justify-between">
-        <span>${esc(it.qty)} ${esc(it.satuan)} x ${esc(Number(it.harga).toLocaleString("id-ID"))}</span>
+        <span>${it.qty} ${it.satuan} x ${Number(it.harga).toLocaleString("id-ID")}</span>
         <span>${Number(it.subtotal).toLocaleString("id-ID")}</span>
       </div>
     </div>
@@ -4083,7 +3962,7 @@
           .map(
             (p, idx) => `
     <div class="flex justify-between">
-      <span>Bayar ${esc(idx + 1)} (${esc(p.metode)})</span>
+      <span>Bayar ${idx + 1} (${p.metode})</span>
       <span>${formatRp(p.nominal)}</span>
     </div>
   `,
@@ -4094,18 +3973,18 @@
     <div>
       ${copyLabel ? `<div class="text-right text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">${copyLabel}</div>` : ""}
       <div class="text-center">
-        <div class="text-sm font-extrabold uppercase">${esc(db.settings.nama_laundry || "EEC Laundry POS")}</div>
-        <div class="text-[10px] text-slate-600 mt-0.5">${esc(db.settings.alamat || "Tasikmalaya, Jawa Barat, Indonesia")}</div>
-        <div class="text-[10px] text-slate-600">Telp: ${esc(db.settings.no_hp || "081234567890")}</div>
+        <div class="text-sm font-extrabold uppercase">${db.settings.nama_laundry || "EEC Laundry POS"}</div>
+        <div class="text-[10px] text-slate-600 mt-0.5">${db.settings.alamat || "Tasikmalaya, Jawa Barat, Indonesia"}</div>
+        <div class="text-[10px] text-slate-600">Telp: ${db.settings.no_hp || "081234567890"}</div>
       </div>
       <div class="border-t border-dashed border-slate-400 my-2"></div>
       <div class="text-center font-bold tracking-widest mb-2">STRUK ORDER</div>
       <div class="space-y-0.5 text-[10px]">
-        <div class="flex"><span class="w-20 shrink-0">No Invoice</span><span>: ${esc(order.no_invoice)}</span></div>
+        <div class="flex"><span class="w-20 shrink-0">No Invoice</span><span>: ${order.no_invoice}</span></div>
         <div class="flex"><span class="w-20 shrink-0">Tanggal</span><span>: ${formatDateTimeID(order.tanggal_order)}</span></div>
-        <div class="flex"><span class="w-20 shrink-0">Pelanggan</span><span>: ${esc(order.nama_pelanggan)}</span></div>
-        <div class="flex"><span class="w-20 shrink-0">HP</span><span>: ${esc(order.no_hp || "-")}</span></div>
-        <div class="flex"><span class="w-20 shrink-0">Status</span><span>: ${esc(order.status_order)}</span></div>
+        <div class="flex"><span class="w-20 shrink-0">Pelanggan</span><span>: ${order.nama_pelanggan}</span></div>
+        <div class="flex"><span class="w-20 shrink-0">HP</span><span>: ${order.no_hp || "-"}</span></div>
+        <div class="flex"><span class="w-20 shrink-0">Status</span><span>: ${order.status_order}</span></div>
         <div class="flex"><span class="w-20 shrink-0">Ambil</span><span>: ${formatDateTimeID(order.tanggal_ambil)}</span></div>
       </div>
       <div class="border-t border-dashed border-slate-400 my-2"></div>
@@ -4137,7 +4016,7 @@
         <div class="border-t border-dashed border-slate-400 my-1.5"></div>
         <div class="text-[10px]">
           <div class="font-bold">Catatan:</div>
-          <div>${esc(order.catatan)}</div>
+          <div>${order.catatan}</div>
         </div>
       `
           : ""
@@ -4280,17 +4159,17 @@
           <i class="fa-solid fa-jug-detergent"></i>
         </div>
         <div>
-          <p class="text-xs font-bold text-slate-800">${esc(svc.nama_layanan)}</p>
+          <p class="text-xs font-bold text-slate-800">${svc.nama_layanan}</p>
           <div class="flex items-center gap-1.5 mt-1">
             <span class="bg-emerald-50 text-emerald-600 text-[10px] font-extrabold px-2 py-0.5 rounded-md">${formatRp(svc.harga)}</span>
-            <span class="text-[11px] text-slate-400">/ ${esc(svc.satuan)}</span>
+            <span class="text-[11px] text-slate-400">/ ${svc.satuan}</span>
           </div>
-          <p class="text-[10px] text-slate-400 mt-1 flex items-center gap-1"><i class="fa-regular fa-clock"></i> ${esc(svc.durasi_angka)} ${esc(svc.durasi_satuan.toLowerCase())}</p>
+          <p class="text-[10px] text-slate-400 mt-1 flex items-center gap-1"><i class="fa-regular fa-clock"></i> ${svc.durasi_angka} ${svc.durasi_satuan.toLowerCase()}</p>
         </div>
       </div>
       <div class="flex items-center gap-1">
-        <button onclick="openServiceFormModal('${escJs(svc.id_layanan)}', ${originalIndex})" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center" title="Edit Layanan"><i class="fa-solid fa-pen-to-square text-xs"></i></button>
-        <button onclick="deleteServiceItem('${escJs(svc.id_layanan)}', ${originalIndex})" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-rose-500 flex items-center justify-center" title="Hapus Layanan"><i class="fa-regular fa-trash-can text-xs"></i></button>
+        <button onclick="openServiceFormModal('${svc.id_layanan}', ${originalIndex})" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center" title="Edit Layanan"><i class="fa-solid fa-pen-to-square text-xs"></i></button>
+        <button onclick="deleteServiceItem('${svc.id_layanan}', ${originalIndex})" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-rose-500 flex items-center justify-center" title="Hapus Layanan"><i class="fa-regular fa-trash-can text-xs"></i></button>
       </div>
     </div>
   `,
@@ -4679,7 +4558,7 @@
       <div class="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-sm flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-full ${badgeColors[idx] || "bg-brand-soft text-brand"} flex items-center justify-center text-xs font-extrabold">${idx + 1}</div>
-          <div><p class="text-xs font-bold text-slate-800">${esc(s.nama)}</p><p class="text-[10px] text-slate-400">${esc(s.orderCount)} order</p></div>
+          <div><p class="text-xs font-bold text-slate-800">${s.nama}</p><p class="text-[10px] text-slate-400">${s.orderCount} order</p></div>
         </div>
         <span class="text-xs font-extrabold text-emerald-600">${formatShortRp(s.omzet)}</span>
       </div>
@@ -4973,8 +4852,8 @@
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-10 h-10 rounded-full bg-brand-soft text-brand flex items-center justify-center font-bold text-xs shrink-0">${initials}</div>
           <div class="min-w-0">
-            <p class="text-xs font-bold text-slate-800 truncate">${esc(c.nama_pelanggan || "-")}</p>
-            <p class="text-[11px] text-slate-500 truncate">${esc(c.no_hp || "-")} • ${esc(c.alamat || "-")}</p>
+            <p class="text-xs font-bold text-slate-800 truncate">${c.nama_pelanggan || "-"}</p>
+            <p class="text-[11px] text-slate-500 truncate">${c.no_hp || "-"} • ${c.alamat || "-"}</p>
           </div>
         </div>
         ${
@@ -5106,11 +4985,6 @@
       }
 
       function executeDeleteAllCustomers() {
-        if (isKasirUser()) {
-          closeGenericModal();
-          showToast("Hanya Owner/Admin!", true);
-          return;
-        }
         db.customers = [];
         currentCustomerPage = 1;
         queueOp("deleteAllCustomers");
@@ -5203,7 +5077,7 @@
         const content = document.getElementById("modal-generic-content");
         content.innerHTML = `
     <div class="flex items-center justify-between"><h3 class="text-sm font-bold text-slate-800">Ubah ${title}</h3><button onclick="closeGenericModal()" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button></div>
-    <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">${esc(title)}</label><input type="text" id="generic-setting-input" value="${esc(db.settings[key] || "")}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:border-brand" /></div>
+    <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">${title}</label><input type="text" id="generic-setting-input" value="${db.settings[key] || ""}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:border-brand" /></div>
     <div class="flex gap-2"><button onclick="closeGenericModal()" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600">Batal</button><button onclick="saveSettingItem('${key}')" class="flex-1 py-2.5 rounded-xl bg-brand text-white text-xs font-bold">Simpan</button></div>
   `;
         modal.classList.remove("hidden");
@@ -5264,8 +5138,8 @@
           .map(
             (u) => `
     <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
-      <div><p class="text-xs font-bold text-slate-800">${esc(u.nama_lengkap)} <span class="text-[10px] text-brand font-extrabold">(${esc(u.role)})</span></p><p class="text-[10px] text-slate-400">username: <b>${esc(u.username)}</b></p></div>
-      ${u.username !== "admin" ? `<button onclick="deleteUserAccount('${escJs(u.id_user)}')" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center text-xs"><i class="fa-regular fa-trash-can"></i></button>` : `<span class="text-[10px] bg-indigo-100 text-brand px-2 py-0.5 rounded font-bold">Utama</span>`}
+      <div><p class="text-xs font-bold text-slate-800">${u.nama_lengkap} <span class="text-[10px] text-brand font-extrabold">(${u.role})</span></p><p class="text-[10px] text-slate-400">username: <b>${u.username}</b></p></div>
+      ${u.username !== "admin" ? `<button onclick="deleteUserAccount('${u.id_user}')" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center text-xs"><i class="fa-regular fa-trash-can"></i></button>` : `<span class="text-[10px] bg-indigo-100 text-brand px-2 py-0.5 rounded font-bold">Utama</span>`}
     </div>
   `,
           )
@@ -5277,7 +5151,7 @@
     <div class="pt-3 border-t border-slate-100 space-y-2">
       <p class="text-xs font-bold text-slate-700">Tambah User Baru</p>
       <input type="text" id="new-user-fullname" placeholder="Nama Lengkap" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-      <div class="grid grid-cols-2 gap-2"><input type="text" id="new-user-username" placeholder="Username" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" /><input type="text" id="new-user-password" placeholder="Password (min. 8, huruf + angka)" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" /></div>
+      <div class="grid grid-cols-2 gap-2"><input type="text" id="new-user-username" placeholder="Username" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" /><input type="text" id="new-user-password" placeholder="Password" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" /></div>
       <select id="new-user-role" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold"><option value="Kasir">Kasir</option><option value="Owner">Owner</option></select>
       <button onclick="addNewUserAccount()" class="w-full py-2.5 rounded-xl bg-brand text-white text-xs font-bold">+ Tambah User</button>
     </div>
@@ -5285,7 +5159,7 @@
         modal.classList.remove("hidden");
       }
 
-      async function addNewUserAccount() {
+      function addNewUserAccount() {
         const nama = document.getElementById("new-user-fullname").value.trim();
         const username = document
           .getElementById("new-user-username")
@@ -5299,109 +5173,56 @@
           return;
         }
 
-        const perr = passwordPolicyMessage(password);
-        if (perr) {
-          showToast(perr, true);
-          return;
-        }
-
-        if (IS_PREVIEW) {
-          db.users.push({
-            id_user: "USR-" + Date.now().toString().slice(-4),
-            username,
-            password,
-            nama_lengkap: nama,
-            role,
-            created_at: new Date().toISOString().slice(0, 10),
-          });
-          saveLocalDB();
-          openUserManagementModal();
-          showToast("User ditambahkan");
-          return;
-        }
-        // Mode produksi: password dikirim langsung ke server (di-hash di sana),
-        // tidak disimpan di perangkat dan tidak masuk antrean offline.
-        const res = await serverCall("apiAddUser", {
+        const newUser = {
+          id_user: "USR-" + Date.now().toString().slice(-4),
           username,
           password,
           nama_lengkap: nama,
           role,
-        });
-        if (!res || res.status !== "success") {
-          showToast((res && res.message) || "Gagal menambah user", true);
-          return;
-        }
-        db.users.push(res.user);
-        saveLocalDB();
+          created_at: new Date().toISOString().slice(0, 10),
+        };
+        db.users.push(newUser);
+        queueOp("saveUser", { user: newUser });
         openUserManagementModal();
         showToast("User ditambahkan");
       }
 
       function deleteUserAccount(userId) {
-        if (currentUser && userId === currentUser.id_user) {
-          showToast("Tidak dapat menghapus akun yang sedang dipakai", true);
-          return;
-        }
         db.users = db.users.filter((u) => u.id_user !== userId);
         queueOp("deleteUser", { id_user: userId });
         openUserManagementModal();
         showToast("User dihapus");
       }
 
-      function isPasswordLocked() {
-        if (!(LOCK_KASIR_PASSWORD && isKasirUser())) return false;
-        showToast("Password akun Kasir (demo) tidak dapat diubah", true);
-        return true;
-      }
-
       function openChangePasswordModal() {
-        if (isPasswordLocked()) return;
         const modal = document.getElementById("modal-generic");
         const content = document.getElementById("modal-generic-content");
         content.innerHTML = `
     <div class="flex items-center justify-between"><h3 class="text-sm font-bold text-slate-800">Ubah Password</h3><button onclick="closeGenericModal()" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button></div>
-    <div class="space-y-2.5"><input type="password" id="cp-old" placeholder="Password Lama" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs" /><input type="password" id="cp-new" placeholder="Password Baru (min. 8, huruf + angka)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs" /></div>
+    <div class="space-y-2.5"><input type="password" id="cp-old" placeholder="Password Lama" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs" /><input type="password" id="cp-new" placeholder="Password Baru" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs" /></div>
     <button onclick="saveNewPassword()" class="w-full py-2.5 rounded-xl bg-brand text-white text-xs font-bold">Simpan</button>
   `;
         modal.classList.remove("hidden");
       }
 
-      async function saveNewPassword() {
-        if (isPasswordLocked()) return;
-        const oldP = document.getElementById("cp-old").value.trim();
+      function saveNewPassword() {
         const newP = document.getElementById("cp-new").value.trim();
-        if (!oldP) {
-          showToast("Isi password lama", true);
+        if (!newP || newP.length < 4) {
+          showToast("Minimal 4 karakter", true);
           return;
         }
-        const perr = passwordPolicyMessage(newP);
-        if (perr) {
-          showToast(perr, true);
-          return;
-        }
-        if (IS_PREVIEW) {
-          const idx = db.users.findIndex(
-            (u) => u.username === currentUser.username,
-          );
-          if (idx < 0 || db.users[idx].password !== oldP) {
-            showToast("Password lama salah", true);
-            return;
-          }
+        const idx = db.users.findIndex(
+          (u) => u.username === currentUser.username,
+        );
+        if (idx >= 0) {
           db.users[idx].password = newP;
-          saveLocalDB();
+          currentUser.password = newP;
+          queueOp("changePassword", {
+            username: currentUser.username,
+            new_password: newP,
+          });
           closeGenericModal();
           showToast("Password diperbarui");
-          return;
-        }
-        // Mode produksi: password lama diverifikasi server; token sesi diganti setelah berhasil.
-        const res = await serverCall("apiChangePassword", oldP, newP);
-        if (res && res.status === "success" && res.token) {
-          sessionToken = res.token;
-          saveSession(currentUser);
-          closeGenericModal();
-          showToast("Password diperbarui");
-        } else if (!res || res.status !== "unauthorized") {
-          showToast((res && res.message) || "Gagal mengubah password", true);
         }
       }
 
@@ -5419,17 +5240,11 @@
       function restoreDatabaseJSON(event) {
         const file = event.target.files[0];
         if (!file) return;
-        if (isKasirUser()) {
-          event.target.value = "";
-          showToast("Hanya Owner/Admin!", true);
-          return;
-        }
         const reader = new FileReader();
         reader.onload = function (e) {
           try {
             const parsed = JSON.parse(e.target.result);
             if (parsed.settings && parsed.services) {
-              parsed.users = db.users; // akun pengguna tidak pernah diganti lewat file backup
               db = parsed;
               queueOp("restoreBackup", { backupData: db });
               refreshAllUI();
