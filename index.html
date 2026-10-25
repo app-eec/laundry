@@ -11,7 +11,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
-    <link rel="preconnect" href="https://script.google.com" />
+    <link rel="preconnect" href="https://firestore.googleapis.com" />
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js" />
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js" />
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap"
@@ -32,14 +36,6 @@
         font-family: "Plus Jakarta Sans", sans-serif !important;
         background-color: #f4f5fb !important;
         -webkit-tap-highlight-color: transparent;
-      }
-
-      #navbar-iframe,
-      .navbar,
-      .blog-feeds,
-      .post-footer,
-      .comments {
-        display: none !important;
       }
 
       #eec-app-root {
@@ -185,10 +181,6 @@
           background: #ffffff !important;
         }
         body > *:not(#dedicated-print-container) {
-          display: none !important;
-        }
-        #eec-app-root,
-        .no-print {
           display: none !important;
         }
         #dedicated-print-container {
@@ -1173,10 +1165,7 @@
                       <button
                         id="btn-edit-prefix"
                         onclick="
-                          openEditSettingModal(
-                            \'prefix_invoice\',
-                            'Prefix Invoice',
-                          )
+                          openEditSettingModal('prefix_invoice', 'Prefix Invoice')
                         "
                         class="w-8 h-8 rounded-lg bg-brand-soft text-brand flex items-center justify-center hover:bg-indigo-100"
                       >
@@ -1895,7 +1884,6 @@
             </div>
 
             <input type="hidden" id="svc-id-input" />
-            <input type="hidden" id="svc-index-input" value="-1" />
 
             <div
               class="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm space-y-4"
@@ -2250,7 +2238,6 @@
               </div>
 
               <input type="hidden" id="cust-id-edit" />
-              <input type="hidden" id="cust-index-edit" value="-1" />
 
               <div class="space-y-3">
                 <div>
@@ -2394,7 +2381,6 @@
       const SESSION_KEY = "EEC_LAUNDRY_POS_SESSION";
       let currentUser = null;
       let currentTab = "dashboard";
-      let lastDbJson = "";
       let currentOrderStatusFilter = "Semua";
       let currentOrdersPage = 1;
       const ORDERS_PAGE_SIZE = 10;
@@ -2467,79 +2453,60 @@
       // State aplikasi hanya di memori (tanpa localStorage/sessionStorage)
       let db = JSON.parse(JSON.stringify(IS_PREVIEW ? DEFAULT_DB : EMPTY_DB));
 
-      function saveLocalDB() {
-        try {
-          lastDbJson = JSON.stringify(db);
-        } catch (e) {}
-      }
-
       // Urutan paket layanan: A-Z (ascending) berdasarkan nama, tanpa membedakan huruf besar/kecil
+      const NAME_COLLATOR = new Intl.Collator("id", {
+        sensitivity: "base",
+        numeric: true,
+      });
       const byServiceName = (a, b) =>
-        String(a.nama_layanan || "").localeCompare(
+        NAME_COLLATOR.compare(
+          String(a.nama_layanan || ""),
           String(b.nama_layanan || ""),
-          "id",
-          { sensitivity: "base", numeric: true },
         );
+      // Urutan order terbaru dulu (string ISO WIB bisa dibandingkan langsung)
+      const byNewest = (a, b) =>
+        a.tanggal_order < b.tanggal_order
+          ? 1
+          : a.tanggal_order > b.tanggal_order
+            ? -1
+            : 0;
 
+      const ID_NUM = new Intl.NumberFormat("id-ID");
       function formatRp(num) {
-        const n = Number(num) || 0;
-        return "Rp " + n.toLocaleString("id-ID");
+        return "Rp " + ID_NUM.format(Number(num) || 0);
       }
 
       function formatShortRp(num) {
         const n = Number(num) || 0;
         if (n >= 1000000)
           return "Rp " + (n / 1000000).toFixed(1).replace(".0", "") + " jt";
-        if (n >= 1000)
-          return "Rp " + Math.round(n / 1000).toLocaleString("id-ID") + " rb";
-        return "Rp " + n.toLocaleString("id-ID");
+        if (n >= 1000) return "Rp " + ID_NUM.format(Math.round(n / 1000)) + " rb";
+        return "Rp " + ID_NUM.format(n);
       }
 
       // HELPER ZONA WAKTU INDONESIA BARAT (WIB / ASIA/JAKARTA - FORMAT 24 JAM)
-      function getWIBParts(dateInput = new Date()) {
-        let d;
-        if (dateInput instanceof Date) {
-          d = dateInput;
-        } else if (typeof dateInput === "string") {
-          const clean = dateInput.trim();
-          if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(clean)) {
-            d = new Date(
-              clean + (clean.length === 16 ? ":00+07:00" : "+07:00"),
-            );
-          } else {
-            d = new Date(clean);
-          }
-        } else {
-          d = new Date();
-        }
-
-        if (isNaN(d.getTime())) d = new Date();
-
-        const formatter = new Intl.DateTimeFormat("en-GB", {
-          timeZone: "Asia/Jakarta",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false,
+      const WIB_FMT = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Jakarta",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+      function getWIBParts(d = new Date()) {
+        const p = {};
+        WIB_FMT.formatToParts(d).forEach((x) => {
+          if (x.type !== "literal") p[x.type] = x.value;
         });
-
-        const parts = {};
-        formatter.formatToParts(d).forEach((p) => {
-          if (p.type !== "literal") parts[p.type] = p.value;
-        });
-
-        const hour = parts.hour === "24" ? "00" : parts.hour;
-
         return {
-          year: parts.year,
-          month: parts.month,
-          day: parts.day,
-          hour: hour,
-          minute: parts.minute,
-          second: parts.second || "00",
+          year: p.year,
+          month: p.month,
+          day: p.day,
+          hour: p.hour === "24" ? "00" : p.hour,
+          minute: p.minute,
+          second: p.second || "00",
         };
       }
 
@@ -2606,7 +2573,6 @@
       // Perubahan data langsung diteruskan ke Firestore sesuai urutan input. Saat offline,
       // cache bawaan Firestore menahannya lalu mengirim otomatis begitu perangkat online lagi.
       function queueOp(action, payload = {}) {
-        saveLocalDB();
         if (IS_PREVIEW) return;
         const api = window.FirebaseAPI;
         if (!api) {
@@ -2618,45 +2584,56 @@
         );
       }
 
+      // Data realtime dari listener Firestore (dipanggil jembatan Firebase) atau tombol sinkron
+      let refreshQueued = false;
+      function scheduleRefresh() {
+        if (refreshQueued || !currentUser) return;
+        refreshQueued = true;
+        requestAnimationFrame(() => {
+          refreshQueued = false;
+          refreshAllUI();
+          if (!document.getElementById("modal-customers").classList.contains("hidden"))
+            renderCustomerList();
+          if (!document.getElementById("modal-service-list").classList.contains("hidden"))
+            renderServiceManagementList();
+        });
+      }
+
+      function applyRemoteData(data) {
+        db = data;
+        if (
+          currentUser &&
+          !db.users.some(
+            (u) =>
+              String(u.username).toLowerCase() ===
+              String(currentUser.username).toLowerCase(),
+          )
+        ) {
+          handleLogout();
+          return;
+        }
+        scheduleRefresh();
+      }
+
       async function syncFromServer(showNotification = true) {
         if (isSyncingDatabase) return;
         isSyncingDatabase = true;
-
         try {
           if (IS_PREVIEW) {
             refreshAllUI();
-            if (showNotification) showToast("Data berhasil disinkronkan");
-            return;
-          }
-          if (!navigator.onLine) {
-            if (showNotification) showToast("Mode Offline aktif", true);
-            return;
-          }
-          await serverCall("apiIdle"); // pastikan perubahan terakhir sudah dikirim ke Firestore
-          const res = await serverCall("apiGetData", showNotification);
-          if (!res || res.status !== "success" || !res.data) {
-            if (showNotification)
-              showToast(res?.message || "Gagal memuat data dari server", true);
-            return;
-          }
-          const data = res.data;
-
-          // render ulang hanya bila data benar-benar berubah
-          if (JSON.stringify(data) !== lastDbJson) {
-            db = data;
-            saveLocalDB();
-            const stillExists =
-              !currentUser ||
-              db.users.some(
-                (u) =>
-                  String(u.username).toLowerCase() ===
-                  String(currentUser.username).toLowerCase(),
-              );
-            if (!stillExists) {
-              handleLogout();
+          } else {
+            if (!navigator.onLine) {
+              if (showNotification) showToast("Mode Offline aktif", true);
               return;
             }
-            refreshAllUI();
+            await serverCall("apiIdle"); // pastikan perubahan terakhir sudah dikirim ke Firestore
+            const res = await serverCall("apiGetData");
+            if (!res || res.status !== "success" || !res.data) {
+              if (showNotification)
+                showToast(res?.message || "Gagal memuat data dari server", true);
+              return;
+            }
+            applyRemoteData(res.data);
           }
           if (showNotification) showToast("Data berhasil disinkronkan");
         } catch (err) {
@@ -2666,24 +2643,10 @@
         }
       }
 
-      window.addEventListener("online", () => {
-        if (currentUser) syncFromServer(false);
-      });
-
-      function ensurePrintContainerInBody() {
-        const dedicatedPrint = document.getElementById(
-          "dedicated-print-container",
-        );
-        if (dedicatedPrint && dedicatedPrint.parentNode !== document.body) {
-          document.body.appendChild(dedicatedPrint);
-        }
-      }
-
       window.addEventListener("DOMContentLoaded", () => {
-        ensurePrintContainerInBody();
-        const demoHelper = document.getElementById("demo-login-helper");
-        if (IS_PREVIEW) demoHelper.classList.remove("hidden");
-        else demoHelper.classList.add("hidden");
+        document
+          .getElementById("demo-login-helper")
+          .classList.toggle("hidden", !IS_PREVIEW);
 
         document.getElementById("login-subtitle-store").textContent =
           db.settings.nama_laundry || "EEC Laundry POS";
@@ -2703,7 +2666,6 @@
           const res = await serverCall("apiRestore", saved);
           if (res && res.status === "success") {
             db = res.appData;
-            saveLocalDB();
             completeLoginSession(res.user, true);
             return;
           }
@@ -2763,11 +2725,7 @@
           btn.disabled = false;
           btn.textContent = "Login";
           if (res && res.status === "success") {
-            // bila masih ada perubahan lokal yang belum terkirim, jangan ditimpa data server
-            if (res.appData) {
-              db = res.appData;
-              saveLocalDB();
-            }
+            if (res.appData) db = res.appData;
             completeLoginSession(res.user);
           } else {
             showToast((res && res.message) || "Gagal login", true);
@@ -2911,7 +2869,7 @@
           "dash-recent-orders-list",
         );
         const sorted = [...db.orders]
-          .sort((a, b) => new Date(b.tanggal_order) - new Date(a.tanggal_order))
+          .sort(byNewest)
           .slice(0, 4);
 
         if (sorted.length === 0) {
@@ -3089,9 +3047,7 @@
             }
             return true;
           })
-          .sort(
-            (a, b) => new Date(b.tanggal_order) - new Date(a.tanggal_order),
-          );
+          .sort(byNewest);
 
         const container = document.getElementById("orders-card-container");
         const paginationWrapper = document.getElementById(
@@ -3771,7 +3727,7 @@
       }
 
       // STRUK & PRINTER A4 (210 x 297 MM) - 1 BAGIAN
-      function buildSingleReceiptBlockHTML(order, copyLabel = "") {
+      function buildSingleReceiptBlockHTML(order) {
         const isPelunasan =
           (order.riwayat_bayar || []).length > 1 &&
           order.status_bayar === "LUNAS";
@@ -3810,7 +3766,6 @@
 
         return `
     <div>
-      ${copyLabel ? `<div class="text-right text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">${copyLabel}</div>` : ""}
       <div class="text-center">
         <div class="text-sm font-extrabold uppercase">${db.settings.nama_laundry || "EEC Laundry POS"}</div>
         <div class="text-[10px] text-slate-600 mt-0.5">${db.settings.alamat || "Tasikmalaya, Jawa Barat, Indonesia"}</div>
@@ -3883,30 +3838,18 @@
         const order = db.orders.find((o) => o.no_invoice === invoiceNo);
         if (!order) return;
         activeReceiptOrder = order;
-
         document.getElementById("print-area-wrapper").innerHTML =
           buildSingleReceiptBlockHTML(order);
-        ensurePrintContainerInBody();
-        const dedicatedPrint = document.getElementById(
-          "dedicated-print-container",
-        );
-        if (dedicatedPrint)
-          dedicatedPrint.innerHTML = buildA4PrintSheetHTML(order);
-
+        document.getElementById("dedicated-print-container").innerHTML =
+          buildA4PrintSheetHTML(order);
         document.getElementById("modal-receipt").classList.remove("hidden");
       }
 
       function printReceiptBrowser() {
-        ensurePrintContainerInBody();
-        const dedicatedPrint = document.getElementById(
-          "dedicated-print-container",
-        );
-        if (activeReceiptOrder && dedicatedPrint) {
-          dedicatedPrint.innerHTML = buildA4PrintSheetHTML(activeReceiptOrder);
-        }
-        setTimeout(() => {
-          window.print();
-        }, 100);
+        if (activeReceiptOrder)
+          document.getElementById("dedicated-print-container").innerHTML =
+            buildA4PrintSheetHTML(activeReceiptOrder);
+        setTimeout(() => window.print(), 100);
       }
 
       function closeReceiptModal() {
@@ -3955,43 +3898,29 @@
       }
 
       function renderServiceManagementList() {
-        const container = document.getElementById(
-          "service-management-container",
-        );
-        const paginationWrapper = document.getElementById(
-          "service-pagination-wrapper",
-        );
-        const paginationContainer = document.getElementById(
-          "service-pagination-container",
-        );
+        const container = document.getElementById("service-management-container");
+        const paginationWrapper = document.getElementById("service-pagination-wrapper");
+        const paginationContainer = document.getElementById("service-pagination-container");
 
         if (db.services.length === 0) {
           container.innerHTML = `<div class="bg-white rounded-2xl p-6 text-center text-xs text-slate-400">Belum ada paket layanan.</div>`;
-          if (paginationContainer) paginationContainer.innerHTML = "";
-          if (paginationWrapper) paginationWrapper.classList.add("hidden");
+          paginationContainer.innerHTML = "";
+          paginationWrapper.classList.add("hidden");
           return;
         }
+        paginationWrapper.classList.remove("hidden");
 
-        if (paginationWrapper) paginationWrapper.classList.remove("hidden");
-
-        const indexedServices = db.services
-          .map((svc, idx) => ({ svc, originalIndex: idx }))
-          .sort((a, b) => byServiceName(a.svc, b.svc));
-        const totalItems = indexedServices.length;
-        const totalPages = Math.max(
-          1,
-          Math.ceil(totalItems / SERVICE_PAGE_SIZE),
-        );
-        if (currentServicePage > totalPages) currentServicePage = totalPages;
-        if (currentServicePage < 1) currentServicePage = 1;
-
+        const sorted = [...db.services].sort(byServiceName);
+        const totalItems = sorted.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / SERVICE_PAGE_SIZE));
+        currentServicePage = Math.min(Math.max(currentServicePage, 1), totalPages);
         const startIndex = (currentServicePage - 1) * SERVICE_PAGE_SIZE;
         const endIndex = Math.min(startIndex + SERVICE_PAGE_SIZE, totalItems);
-        const pageServices = indexedServices.slice(startIndex, endIndex);
 
-        container.innerHTML = pageServices
+        container.innerHTML = sorted
+          .slice(startIndex, endIndex)
           .map(
-            ({ svc, originalIndex }) => `
+            (svc) => `
     <div class="bg-white rounded-2xl p-3.5 border border-slate-100 shadow-sm flex items-center justify-between">
       <div class="flex items-center gap-3.5">
         <div class="w-11 h-11 rounded-2xl bg-brand-soft text-brand flex items-center justify-center text-lg shrink-0">
@@ -4007,78 +3936,39 @@
         </div>
       </div>
       <div class="flex items-center gap-1">
-        <button onclick="openServiceFormModal('${svc.id_layanan}', ${originalIndex})" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center" title="Edit Layanan"><i class="fa-solid fa-pen-to-square text-xs"></i></button>
-        <button onclick="deleteServiceItem('${svc.id_layanan}', ${originalIndex})" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-rose-500 flex items-center justify-center" title="Hapus Layanan"><i class="fa-regular fa-trash-can text-xs"></i></button>
+        <button onclick="openServiceFormModal('${svc.id_layanan}')" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center" title="Edit Layanan"><i class="fa-solid fa-pen-to-square text-xs"></i></button>
+        <button onclick="deleteServiceItem('${svc.id_layanan}')" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-rose-500 flex items-center justify-center" title="Hapus Layanan"><i class="fa-regular fa-trash-can text-xs"></i></button>
       </div>
     </div>
   `,
           )
           .join("");
 
-        if (paginationContainer) {
-          paginationContainer.innerHTML = buildPaginationBarHTML(
-            currentServicePage,
-            totalPages,
-            totalItems,
-            startIndex,
-            endIndex,
-            "layanan",
-            "goToServicePage",
-          );
-        }
+        paginationContainer.innerHTML = buildPaginationBarHTML(
+          currentServicePage,
+          totalPages,
+          totalItems,
+          startIndex,
+          endIndex,
+          "layanan",
+          "goToServicePage",
+        );
       }
 
-      function openServiceFormModal(serviceId = null, serviceIndex = null) {
-        const idInp = document.getElementById("svc-id-input");
-        const idxInp = document.getElementById("svc-index-input");
-        const nameInp = document.getElementById("svc-name-input");
-        const priceInp = document.getElementById("svc-price-input");
-        const durInp = document.getElementById("svc-duration-val");
-        const titleEl = document.getElementById("service-form-title");
-
-        let svc = null;
-        if (
-          serviceIndex !== null &&
-          serviceIndex !== undefined &&
-          serviceIndex >= 0 &&
-          db.services[serviceIndex]
-        ) {
-          svc = db.services[serviceIndex];
-          idxInp.value = String(serviceIndex);
-        } else if (serviceId) {
-          const foundIdx = db.services.findIndex(
-            (s) => s.id_layanan === serviceId,
-          );
-          if (foundIdx >= 0) {
-            svc = db.services[foundIdx];
-            idxInp.value = String(foundIdx);
-          }
-        } else {
-          idxInp.value = "-1";
-        }
-
-        if (svc) {
-          titleEl.textContent = "Edit Layanan";
-          idInp.value = svc.id_layanan;
-          nameInp.value = svc.nama_layanan;
-          priceInp.value = svc.harga;
-          durInp.value = svc.durasi_angka;
-          selectServiceUnit(svc.satuan);
-          selectDurationUnit(svc.durasi_satuan);
-        } else {
-          titleEl.textContent = "Tambah Layanan";
-          idInp.value = "";
-          idxInp.value = "-1";
-          nameInp.value = "";
-          priceInp.value = "";
-          durInp.value = 3;
-          selectServiceUnit("kg");
-          selectDurationUnit("Hari");
-        }
-
-        document
-          .getElementById("modal-service-form")
-          .classList.remove("hidden");
+      function openServiceFormModal(serviceId = null) {
+        const svc = serviceId
+          ? db.services.find((s) => s.id_layanan === serviceId)
+          : null;
+        document.getElementById("service-form-title").textContent = svc
+          ? "Edit Layanan"
+          : "Tambah Layanan";
+        document.getElementById("svc-id-input").value = svc ? svc.id_layanan : "";
+        document.getElementById("svc-name-input").value = svc ? svc.nama_layanan : "";
+        document.getElementById("svc-price-input").value = svc ? svc.harga : "";
+        document.getElementById("svc-duration-val").value = svc ? svc.durasi_angka : 3;
+        selectServiceUnit(svc ? svc.satuan : "kg");
+        selectDurationUnit(svc ? svc.durasi_satuan : "Hari");
+        document.getElementById("modal-service-form").classList.remove("hidden");
       }
 
       function closeServiceFormModal() {
@@ -4130,10 +4020,6 @@
 
       function saveServiceData() {
         const id = document.getElementById("svc-id-input").value.trim();
-        const editIdx = parseInt(
-          document.getElementById("svc-index-input").value,
-          10,
-        );
         const nama = document.getElementById("svc-name-input").value.trim();
         const harga =
           Number(document.getElementById("svc-price-input").value) || 0;
@@ -4145,36 +4031,26 @@
           return;
         }
 
+        const fields = {
+          nama_layanan: nama,
+          satuan: selectedServiceUnit,
+          harga,
+          durasi_angka: durasi,
+          durasi_satuan: selectedDurationUnit,
+        };
+        const idx = id ? db.services.findIndex((s) => s.id_layanan === id) : -1;
         let svcObj;
-        if (!isNaN(editIdx) && editIdx >= 0 && db.services[editIdx]) {
-          const existing = db.services[editIdx];
-          db.services[editIdx] = {
-            ...existing,
-            id_layanan:
-              existing.id_layanan ||
-              id ||
-              "SVC-" + Date.now().toString().slice(-4),
-            nama_layanan: nama,
-            satuan: selectedServiceUnit,
-            harga,
-            durasi_angka: durasi,
-            durasi_satuan: selectedDurationUnit,
-          };
-          svcObj = db.services[editIdx];
-          queueOp("saveService", { service: svcObj });
+        if (idx >= 0) {
+          svcObj = db.services[idx] = { ...db.services[idx], ...fields };
         } else {
           svcObj = {
             id_layanan: "SVC-" + Date.now().toString().slice(-4),
-            nama_layanan: nama,
-            satuan: selectedServiceUnit,
-            harga,
-            durasi_angka: durasi,
-            durasi_satuan: selectedDurationUnit,
+            ...fields,
             aktif: true,
           };
           db.services.push(svcObj);
-          queueOp("saveService", { service: svcObj });
         }
+        queueOp("saveService", { service: svcObj });
 
         closeServiceFormModal();
         renderServiceManagementList();
@@ -4182,17 +4058,8 @@
         showToast("Layanan berhasil disimpan");
       }
 
-      function deleteServiceItem(serviceId, serviceIndex = null) {
-        if (
-          serviceIndex !== null &&
-          serviceIndex !== undefined &&
-          serviceIndex >= 0 &&
-          db.services[serviceIndex]
-        ) {
-          db.services.splice(serviceIndex, 1);
-        } else {
-          db.services = db.services.filter((s) => s.id_layanan !== serviceId);
-        }
+      function deleteServiceItem(serviceId) {
+        db.services = db.services.filter((s) => s.id_layanan !== serviceId);
         queueOp("deleteService", { id_layanan: serviceId });
         renderServiceManagementList();
         renderNewOrderServiceChecklist();
@@ -4571,123 +4438,87 @@
         if (listContainer) listContainer.scrollTop = 0;
       }
 
-      function toggleAddCustomerForm(show = true, custIndex = null) {
+      function toggleAddCustomerForm(show = true, custId = null) {
         const box = document.getElementById("cust-form-box");
-        const titleEl = document.getElementById("cust-form-title");
-        const btnSave = document.getElementById("btn-save-customer");
-
         if (!show) {
           box.classList.add("hidden");
           document.getElementById("cust-id-edit").value = "";
-          document.getElementById("cust-index-edit").value = "-1";
           return;
         }
-
         box.classList.remove("hidden");
 
-        if (
-          custIndex !== null &&
-          custIndex !== undefined &&
-          custIndex >= 0 &&
-          db.customers[custIndex]
-        ) {
-          const c = db.customers[custIndex];
-          if (titleEl)
-            titleEl.textContent = `Edit Pelanggan: ${c.nama_pelanggan || ""}`;
-          if (btnSave)
-            btnSave.innerHTML = `<i class="fa-solid fa-floppy-disk"></i><span>Perbarui Pelanggan</span>`;
-          document.getElementById("cust-id-edit").value = c.id_pelanggan || "";
-          document.getElementById("cust-index-edit").value = String(custIndex);
-          document.getElementById("cust-name-input").value =
-            c.nama_pelanggan || "";
-          document.getElementById("cust-phone-input").value = c.no_hp || "";
-          document.getElementById("cust-address-input").value = c.alamat || "";
-        } else {
-          if (titleEl) titleEl.textContent = "Tambah Pelanggan Baru";
-          if (btnSave)
-            btnSave.innerHTML = `<i class="fa-solid fa-floppy-disk"></i><span>Simpan Pelanggan</span>`;
-          document.getElementById("cust-id-edit").value = "";
-          document.getElementById("cust-index-edit").value = "-1";
-          document.getElementById("cust-name-input").value = "";
-          document.getElementById("cust-phone-input").value = "";
-          document.getElementById("cust-address-input").value = "";
-        }
+        const c = custId
+          ? db.customers.find((x) => x.id_pelanggan === custId)
+          : null;
+        document.getElementById("cust-form-title").textContent = c
+          ? `Edit Pelanggan: ${c.nama_pelanggan || ""}`
+          : "Tambah Pelanggan Baru";
+        document.getElementById("btn-save-customer").innerHTML =
+          `<i class="fa-solid fa-floppy-disk"></i><span>${c ? "Perbarui" : "Simpan"} Pelanggan</span>`;
+        document.getElementById("cust-id-edit").value = c ? c.id_pelanggan : "";
+        document.getElementById("cust-name-input").value = c ? c.nama_pelanggan || "" : "";
+        document.getElementById("cust-phone-input").value = c ? c.no_hp || "" : "";
+        document.getElementById("cust-address-input").value = c ? c.alamat || "" : "";
 
-        setTimeout(() => {
-          document.getElementById("cust-name-input")?.focus();
-        }, 50);
+        setTimeout(() => document.getElementById("cust-name-input")?.focus(), 50);
       }
 
       function renderCustomerList() {
         const q = (document.getElementById("cust-search-input")?.value || "")
           .toLowerCase()
           .trim();
-        const indexedList = db.customers
-          .map((c, idx) => ({ customer: c, originalIndex: idx }))
-          .filter((item) => {
-            const nama = String(
-              item.customer.nama_pelanggan || "",
-            ).toLowerCase();
-            const hp = String(item.customer.no_hp || "").toLowerCase();
-            const alamat = String(item.customer.alamat || "").toLowerCase();
-            return nama.includes(q) || hp.includes(q) || alamat.includes(q);
-          })
+        const list = db.customers
+          .filter((c) =>
+            [c.nama_pelanggan, c.no_hp, c.alamat].some((v) =>
+              String(v || "").toLowerCase().includes(q),
+            ),
+          )
           .sort((a, b) =>
-            String(a.customer.nama_pelanggan || "").localeCompare(
-              String(b.customer.nama_pelanggan || ""),
-              "id",
-              { sensitivity: "base", numeric: true },
+            NAME_COLLATOR.compare(
+              String(a.nama_pelanggan || ""),
+              String(b.nama_pelanggan || ""),
             ),
           );
 
         const container = document.getElementById("customer-list-container");
-        const paginationContainer = document.getElementById(
-          "customer-pagination-container",
-        );
-        const paginationWrapper = document.getElementById(
-          "customer-pagination-wrapper",
-        );
+        const paginationContainer = document.getElementById("customer-pagination-container");
+        const paginationWrapper = document.getElementById("customer-pagination-wrapper");
 
-        if (indexedList.length === 0) {
+        if (list.length === 0) {
           container.innerHTML = `<div class="bg-white rounded-2xl p-6 text-center text-xs text-slate-400">Tidak ada pelanggan ditemukan.</div>`;
-          if (paginationContainer) paginationContainer.innerHTML = "";
-          if (paginationWrapper) paginationWrapper.classList.add("hidden");
+          paginationContainer.innerHTML = "";
+          paginationWrapper.classList.add("hidden");
           return;
         }
+        paginationWrapper.classList.remove("hidden");
 
-        if (paginationWrapper) paginationWrapper.classList.remove("hidden");
-
-        const totalItems = indexedList.length;
-        const totalPages = Math.max(
-          1,
-          Math.ceil(totalItems / CUSTOMER_PAGE_SIZE),
-        );
-        if (currentCustomerPage > totalPages) currentCustomerPage = totalPages;
-        if (currentCustomerPage < 1) currentCustomerPage = 1;
-
+        const totalItems = list.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / CUSTOMER_PAGE_SIZE));
+        currentCustomerPage = Math.min(Math.max(currentCustomerPage, 1), totalPages);
         const startIndex = (currentCustomerPage - 1) * CUSTOMER_PAGE_SIZE;
         const endIndex = Math.min(startIndex + CUSTOMER_PAGE_SIZE, totalItems);
-        const pageItems = indexedList.slice(startIndex, endIndex);
 
-        const activeEditIndex = Number(
-          document.getElementById("cust-index-edit")?.value ?? -1,
-        );
+        const pick = currentCustomerModalMode === "pick";
+        const kasir = isKasirUser();
+        const formOpen = !document
+          .getElementById("cust-form-box")
+          .classList.contains("hidden");
+        const editingId = formOpen
+          ? document.getElementById("cust-id-edit").value
+          : "";
 
-        container.innerHTML = pageItems
-          .map(({ customer: c, originalIndex }) => {
+        container.innerHTML = list
+          .slice(startIndex, endIndex)
+          .map((c) => {
             const initials = String(c.nama_pelanggan || "PL")
               .trim()
               .slice(0, 2)
               .toUpperCase();
-            const isEditingThis =
-              activeEditIndex === originalIndex &&
-              !document
-                .getElementById("cust-form-box")
-                ?.classList.contains("hidden");
+            const isEditingThis = editingId === c.id_pelanggan;
 
             return `
-      <div onclick="${currentCustomerModalMode === "pick" ? `selectCustomerForOrder(${originalIndex})` : ""}"
-        class="bg-white rounded-2xl p-3.5 border ${isEditingThis ? "border-brand ring-2 ring-indigo-100" : "border-slate-100"} shadow-sm flex items-center justify-between transition ${currentCustomerModalMode === "pick" ? "cursor-pointer hover:border-brand" : ""}">
+      <div onclick="${pick ? `selectCustomerForOrder('${c.id_pelanggan}')` : ""}"
+        class="bg-white rounded-2xl p-3.5 border ${isEditingThis ? "border-brand ring-2 ring-indigo-100" : "border-slate-100"} shadow-sm flex items-center justify-between transition ${pick ? "cursor-pointer hover:border-brand" : ""}">
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-10 h-10 rounded-full bg-brand-soft text-brand flex items-center justify-center font-bold text-xs shrink-0">${initials}</div>
           <div class="min-w-0">
@@ -4696,14 +4527,14 @@
           </div>
         </div>
         ${
-          currentCustomerModalMode === "pick"
+          pick
             ? `
           <span class="text-xs font-bold text-brand bg-brand-soft px-3 py-1 rounded-xl shrink-0">Pilih</span>
         `
             : `
           <div class="flex items-center gap-1 shrink-0">
-            <button type="button" onclick="event.stopPropagation(); toggleAddCustomerForm(true, ${originalIndex})" class="w-8 h-8 rounded-lg hover:bg-indigo-50 text-slate-500 hover:text-brand flex items-center justify-center transition" title="Edit Pelanggan"><i class="fa-solid fa-pen text-xs"></i></button>
-            <button type="button" ${isKasirUser() ? 'disabled style="opacity:.4;cursor:not-allowed;pointer-events:none"' : ""} onclick="event.stopPropagation(); deleteCustomer(${originalIndex})" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-rose-500 flex items-center justify-center transition" title="Hapus Pelanggan"><i class="fa-regular fa-trash-can text-xs"></i></button>
+            <button type="button" onclick="event.stopPropagation(); toggleAddCustomerForm(true, '${c.id_pelanggan}')" class="w-8 h-8 rounded-lg hover:bg-indigo-50 text-slate-500 hover:text-brand flex items-center justify-center transition" title="Edit Pelanggan"><i class="fa-solid fa-pen text-xs"></i></button>
+            <button type="button" ${kasir ? 'disabled style="opacity:.4;cursor:not-allowed;pointer-events:none"' : ""} onclick="event.stopPropagation(); deleteCustomer('${c.id_pelanggan}')" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-rose-500 flex items-center justify-center transition" title="Hapus Pelanggan"><i class="fa-regular fa-trash-can text-xs"></i></button>
           </div>
         `
         }
@@ -4712,21 +4543,19 @@
           })
           .join("");
 
-        if (paginationContainer) {
-          paginationContainer.innerHTML = buildPaginationBarHTML(
-            currentCustomerPage,
-            totalPages,
-            totalItems,
-            startIndex,
-            endIndex,
-            "pelanggan",
-            "goToCustomerPage",
-          );
-        }
+        paginationContainer.innerHTML = buildPaginationBarHTML(
+          currentCustomerPage,
+          totalPages,
+          totalItems,
+          startIndex,
+          endIndex,
+          "pelanggan",
+          "goToCustomerPage",
+        );
       }
 
-      function selectCustomerForOrder(custIndex) {
-        const c = db.customers[custIndex];
+      function selectCustomerForOrder(custId) {
+        const c = db.customers.find((x) => x.id_pelanggan === custId);
         if (!c) return;
         document.getElementById("new-order-cust-name").value =
           c.nama_pelanggan || "";
@@ -4739,39 +4568,24 @@
 
       function saveCustomerData() {
         const id = document.getElementById("cust-id-edit").value.trim();
-        const editIndex = parseInt(
-          document.getElementById("cust-index-edit").value,
-          10,
-        );
         const nama = document.getElementById("cust-name-input").value.trim();
         const hp = document.getElementById("cust-phone-input").value.trim();
-        const alamat = document
-          .getElementById("cust-address-input")
-          .value.trim();
+        const alamat = document.getElementById("cust-address-input").value.trim();
 
         if (!nama) {
           showToast("Nama pelanggan wajib diisi", true);
           return;
         }
 
+        const idx = id ? db.customers.findIndex((c) => c.id_pelanggan === id) : -1;
         let custObj;
-        if (!isNaN(editIndex) && editIndex >= 0 && db.customers[editIndex]) {
-          const existing = db.customers[editIndex];
-          db.customers[editIndex] = {
-            ...existing,
-            id_pelanggan:
-              existing.id_pelanggan ||
-              id ||
-              "CST-" + Date.now().toString().slice(-4),
+        if (idx >= 0) {
+          custObj = db.customers[idx] = {
+            ...db.customers[idx],
             nama_pelanggan: nama,
             no_hp: hp,
             alamat,
           };
-          custObj = db.customers[editIndex];
-          queueOp("saveCustomer", { customer: custObj });
-          toggleAddCustomerForm(false);
-          renderCustomerList();
-          showToast("Pelanggan berhasil diperbarui");
         } else {
           custObj = {
             id_pelanggan: "CST-" + Date.now().toString().slice(-5),
@@ -4783,19 +4597,20 @@
           };
           db.customers.unshift(custObj);
           currentCustomerPage = 1;
-          queueOp("saveCustomer", { customer: custObj });
-          toggleAddCustomerForm(false);
-          renderCustomerList();
-          showToast("Pelanggan baru berhasil disimpan");
         }
+        queueOp("saveCustomer", { customer: custObj });
+        toggleAddCustomerForm(false);
+        renderCustomerList();
+        showToast(
+          idx >= 0
+            ? "Pelanggan berhasil diperbarui"
+            : "Pelanggan baru berhasil disimpan",
+        );
       }
 
-      function deleteCustomer(custIndex) {
+      function deleteCustomer(custId) {
         if (denyKasir()) return;
-        const target = db.customers[custIndex];
-        if (!target) return;
-        const custId = target.id_pelanggan;
-        db.customers.splice(custIndex, 1);
+        db.customers = db.customers.filter((c) => c.id_pelanggan !== custId);
         queueOp("deleteCustomer", { id_pelanggan: custId });
         toggleAddCustomerForm(false);
         renderCustomerList();
@@ -4846,41 +4661,6 @@
             "@" + currentUser.username;
           document.getElementById("set-profile-role").textContent =
             currentUser.role;
-
-          const roleUser = String(currentUser.role || "")
-            .trim()
-            .toLowerCase();
-
-          // Kasir: ikon pensil Nama/Alamat/Nomor HP Laundry dan Kelola User tetap tampil tetapi dinonaktifkan.
-          // Prefix Invoice, Printer, Ubah Password, Backup & Restore juga dikunci untuk Kasir (applyKasirLocks).
-          const isKasir = roleUser === "kasir";
-          [
-            "btn-edit-nama",
-            "btn-edit-alamat",
-            "btn-edit-hp",
-            "btn-edit-kelola-user",
-          ].forEach((id) => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            if ("disabled" in el) el.disabled = isKasir;
-            el.style.opacity = isKasir ? "0.4" : "";
-            el.style.cursor = isKasir ? "not-allowed" : "";
-            el.style.pointerEvents = isKasir ? "none" : "";
-          });
-          const rowKelolaUser = document.getElementById("menu-kelola-user");
-          if (rowKelolaUser) {
-            rowKelolaUser.style.pointerEvents = isKasir ? "none" : "";
-            rowKelolaUser.style.cursor = isKasir ? "default" : "";
-          }
-
-          // Menu Manajemen User (Kelola User & Ubah Password) tampil untuk semua role, termasuk Kasir.
-          const menuManajemenUser = document.getElementById(
-            "menu-manajemen-user-section",
-          );
-          if (menuManajemenUser) menuManajemenUser.style.display = "";
-          const menuUbahPassword =
-            document.getElementById("menu-ubah-password");
-          if (menuUbahPassword) menuUbahPassword.style.display = "";
         }
         document.getElementById("set-val-nama").textContent =
           db.settings.nama_laundry || "EEC Laundry POS";
@@ -4888,11 +4668,11 @@
           db.settings.alamat || "-";
         document.getElementById("set-val-hp").textContent =
           db.settings.no_hp || "-";
-        applyKasirLocks();
         document.getElementById("set-val-prefix").textContent =
           db.settings.prefix_invoice || "LNDR";
         document.getElementById("set-val-printer").textContent =
           "Kertas A4 (210 x 297 mm) - 1 Bagian";
+        applyKasirLocks();
       }
 
       function closeGenericModal() {
@@ -4912,26 +4692,33 @@
       function applyKasirLocks() {
         const k = isKasirUser();
         [
+          "btn-edit-nama",
+          "btn-edit-alamat",
+          "btn-edit-hp",
           "btn-edit-prefix",
           "btn-delete-all-orders",
           "btn-delete-all-customers",
         ].forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
-          if ("disabled" in el) el.disabled = k;
+          el.disabled = k;
           el.style.opacity = k ? "0.4" : "";
           el.style.cursor = k ? "not-allowed" : "";
           el.style.pointerEvents = k ? "none" : "";
         });
-        ["menu-printer", "menu-ubah-password", "menu-backup", "menu-restore"].forEach(
-          (id) => {
-            const row = document.getElementById(id);
-            if (!row) return;
-            row.style.pointerEvents = k ? "none" : "";
-            const pen = row.querySelector(".w-8.h-8");
-            if (pen) pen.style.opacity = k ? "0.4" : "";
-          },
-        );
+        [
+          "menu-kelola-user",
+          "menu-printer",
+          "menu-ubah-password",
+          "menu-backup",
+          "menu-restore",
+        ].forEach((id) => {
+          const row = document.getElementById(id);
+          if (!row) return;
+          row.style.pointerEvents = k ? "none" : "";
+          const pen = row.querySelector(".w-8.h-8");
+          if (pen) pen.style.opacity = k ? "0.4" : "";
+        });
       }
 
       function isKasirUser() {
@@ -5164,13 +4951,16 @@
     </script>
     <script type="module">
       // ======================================================================
-      // JEMBATAN FIREBASE (pengganti Code.gs). Aktif hanya saat IS_PREVIEW = false.
-      // Bentuk respons sama persis dengan backend Apps Script sebelumnya.
+      // JEMBATAN FIREBASE. Aktif hanya saat IS_PREVIEW = false.
+      // Data dibaca lewat listener realtime (onSnapshot): tampil instan dari cache
+      // lokal, lalu hanya perubahan (delta) yang diunduh dari server.
       // ======================================================================
       const FB_VERSION = "10.14.1";
       const SETTINGS_DEFAULT = { nama_laundry: "EEC Laundry POS", alamat: "", no_hp: "", prefix_invoice: "LNDR", ukuran_printer: "A4_SINGLE" };
       const CHUNK = 400; // batas aman < 500 operasi per batch Firestore
+      const NAMES = ["users", "settings", "services", "customers", "orders"];
       let fb = null;
+      let live = null; // { docs, unsubs } selama sesi login aktif
 
       const ready = IS_PREVIEW ? Promise.resolve() : (async () => {
         const base = `https://www.gstatic.com/firebasejs/${FB_VERSION}/`;
@@ -5179,10 +4969,13 @@
         ]);
         const app = appM.initializeApp(firebaseConfig);
         let store;
-        try { // cache offline bawaan Firestore (IndexedDB): input tetap jalan saat offline lalu otomatis terkirim
-          store = fs.initializeFirestore(app, { localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }) });
+        try { // cache offline (IndexedDB) + deteksi otomatis jaringan yang memblokir WebSocket
+          store = fs.initializeFirestore(app, {
+            localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }),
+            experimentalAutoDetectLongPolling: true,
+          });
         } catch (e) { store = fs.getFirestore(app); }
-        fb = { appM, authM, fs, app, store, auth: authM.getAuth(app) };
+        fb = { appM, authM, fs, store, auth: authM.getAuth(app) };
       })();
       ready.catch(() => {});
 
@@ -5213,37 +5006,61 @@
         return (e && e.message) || "Terjadi kesalahan.";
       };
       const pub = (id, x) => ({ id_user: id, username: x.username || "", nama_lengkap: x.nama_lengkap || "", role: x.role || "Kasir", created_at: x.created_at || "" });
-      const byName = (k) => (a, b) => String(a[k]).localeCompare(String(b[k]), "id", { sensitivity: "base", numeric: true });
 
-      // ---------- membaca seluruh data ----------
-      async function readAll() {
-        const { fs } = fb;
-        const [u, s, sv, c, o] = await Promise.all(["users", "settings", "services", "customers", "orders"].map((n) => fs.getDocs(col(n))));
+      // ---------- dokumen Firestore -> bentuk data aplikasi (urutan ditangani UI) ----------
+      const MAP = {
+        users: (d) => pub(d.id, d.data()),
+        services: (d) => {
+          const x = d.data();
+          return { id_layanan: d.id, nama_layanan: x.nama_layanan || "", satuan: x.satuan || "", harga: Number(x.harga) || 0,
+            durasi_angka: Number(x.durasi_angka) || 1, durasi_satuan: x.durasi_satuan || "Hari", aktif: x.aktif !== false };
+        },
+        customers: (d) => {
+          const x = d.data();
+          return { id_pelanggan: d.id, nama_pelanggan: x.nama_pelanggan || "", no_hp: x.no_hp || "", alamat: x.alamat || "",
+            total_order: Number(x.total_order) || 0, created_at: x.created_at || "" };
+        },
+        orders: (d) => {
+          const x = d.data();
+          return { no_invoice: d.id, tanggal_order: x.tanggal_order || "", tanggal_ambil: x.tanggal_ambil || "",
+            id_pelanggan: x.id_pelanggan || "", nama_pelanggan: x.nama_pelanggan || "", no_hp: x.no_hp || "",
+            items: Array.isArray(x.items) ? x.items : [], catatan: x.catatan || "",
+            total_harga: Number(x.total_harga) || 0, total_dibayar: Number(x.total_dibayar) || 0, kembalian: Number(x.kembalian) || 0,
+            status_bayar: x.status_bayar || "BELUM BAYAR", status_order: x.status_order || "Pending",
+            riwayat_bayar: Array.isArray(x.riwayat_bayar) ? x.riwayat_bayar : [], kasir: x.kasir || "Owner Laundry" };
+        },
+      };
+      const build = (docs) => {
         const settings = { ...SETTINGS_DEFAULT };
-        s.forEach((d) => { if (d.id === "app") Object.assign(settings, d.data()); });
-        return {
-          settings,
-          users: u.docs.map((d) => pub(d.id, d.data())),
-          services: sv.docs.map((d) => {
-            const x = d.data();
-            return { id_layanan: d.id, nama_layanan: x.nama_layanan || "", satuan: x.satuan || "", harga: Number(x.harga) || 0,
-              durasi_angka: Number(x.durasi_angka) || 1, durasi_satuan: x.durasi_satuan || "Hari", aktif: x.aktif !== false };
-          }).sort(byName("nama_layanan")),
-          customers: c.docs.map((d) => {
-            const x = d.data();
-            return { id_pelanggan: d.id, nama_pelanggan: x.nama_pelanggan || "", no_hp: x.no_hp || "", alamat: x.alamat || "",
-              total_order: Number(x.total_order) || 0, created_at: x.created_at || "" };
-          }).sort(byName("nama_pelanggan")),
-          orders: o.docs.map((d) => {
-            const x = d.data();
-            return { no_invoice: d.id, tanggal_order: x.tanggal_order || "", tanggal_ambil: x.tanggal_ambil || "",
-              id_pelanggan: x.id_pelanggan || "", nama_pelanggan: x.nama_pelanggan || "", no_hp: x.no_hp || "",
-              items: Array.isArray(x.items) ? x.items : [], catatan: x.catatan || "",
-              total_harga: Number(x.total_harga) || 0, total_dibayar: Number(x.total_dibayar) || 0, kembalian: Number(x.kembalian) || 0,
-              status_bayar: x.status_bayar || "BELUM BAYAR", status_order: x.status_order || "Pending",
-              riwayat_bayar: Array.isArray(x.riwayat_bayar) ? x.riwayat_bayar : [], kasir: x.kasir || "Owner Laundry" };
-          }).sort((a, b) => String(a.tanggal_order).localeCompare(String(b.tanggal_order)) || a.no_invoice.localeCompare(b.no_invoice)),
-        };
+        docs.settings.forEach((d) => { if (d.id === "app") Object.assign(settings, d.data()); });
+        return { settings, users: docs.users.map(MAP.users), services: docs.services.map(MAP.services),
+          customers: docs.customers.map(MAP.customers), orders: docs.orders.map(MAP.orders) };
+      };
+
+      // ---------- listener realtime ----------
+      const stopLive = () => { if (live) live.unsubs.forEach((f) => f()); live = null; };
+      const liveData = () => build(live.docs);
+      // Resolve setelah kelima koleksi terbaca; perubahan berikutnya diteruskan ke applyRemoteData (Index).
+      function startLive() {
+        stopLive();
+        const l = (live = { docs: {}, unsubs: [] });
+        const seen = new Set();
+        return new Promise((resolve, reject) => {
+          NAMES.forEach((n) => l.unsubs.push(fb.fs.onSnapshot(col(n),
+            (snap) => {
+              l.docs[n] = snap.docs;
+              if (seen.size < NAMES.length) { seen.add(n); if (seen.size === NAMES.length) resolve(); }
+              else if (live === l) applyRemoteData(build(l.docs));
+            },
+            (e) => { if (seen.size < NAMES.length) { stopLive(); reject(e); } },
+          )));
+        });
+      }
+      const docsOf = async (n) => (live && live.docs[n]) || (await fb.fs.getDocs(col(n))).docs;
+      async function readAll() { // cadangan bila listener belum aktif
+        const docs = {};
+        await Promise.all(NAMES.map(async (n) => { docs[n] = (await fb.fs.getDocs(col(n))).docs; }));
+        return build(docs);
       }
 
       // ---------- login hybrid: Owner = Firebase Auth, Kasir = validasi di Firestore ----------
@@ -5273,29 +5090,32 @@
       }
 
       async function apiLogin(username, password) {
-        const { auth, authM, fs } = fb;
+        const { auth, authM } = fb;
         const u = lower(username), p = String(password || "").trim();
         if (!u || !p) return E("Username atau password tidak sesuai!");
-        if (auth.currentUser) await authM.signOut(auth);
+        if (auth.currentUser) { stopLive(); await authM.signOut(auth); }
 
         let cred = null;
         try { cred = await authM.signInWithEmailAndPassword(auth, emailOf(u), p); }
         catch (e) { if (e.code === "auth/network-request-failed") return E("Koneksi server terputus."); }
 
-        if (cred) {
-          const prof = (await ownerProfile(cred.user.uid)) || (await bootstrapOwner(cred.user, u));
-          if (!prof) { await authM.signOut(auth); return E("Akun Owner tidak aktif. Hubungi administrator."); }
-          return { status: "success", user: prof, appData: await readAll() };
+        if (cred) { // profil Owner dan data dimuat paralel
+          const [prof] = await Promise.all([ownerProfile(cred.user.uid), startLive()]);
+          const me = prof || (await bootstrapOwner(cred.user, u));
+          if (!me) { stopLive(); await authM.signOut(auth); return E("Akun Owner tidak aktif. Hubungi administrator."); }
+          return { status: "success", user: me, appData: liveData() };
         }
 
-        // Kasir: token anonim hanya sebagai "tiket" koneksi; kredensial divalidasi terhadap koleksi users
+        // Kasir: token anonim hanya sebagai "tiket" koneksi; kredensial divalidasi terhadap daftar users
+        // yang sudah terbaca oleh listener (tanpa query tambahan ke server).
         await authM.signInAnonymously(auth);
-        const snap = await fs.getDocs(fs.query(col("users"), fs.where("username_lower", "==", u)));
-        for (const d of snap.docs) {
+        await startLive();
+        for (const d of live.docs.users) {
           const x = d.data();
-          if (x.password_hash && x.password_hash === (await hashPw(d.id, p)))
-            return { status: "success", user: pub(d.id, x), appData: await readAll() };
+          if (x.username_lower === u && x.password_hash && x.password_hash === (await hashPw(d.id, p)))
+            return { status: "success", user: pub(d.id, x), appData: liveData() };
         }
+        stopLive();
         await authM.signOut(auth);
         return E("Username atau password tidak sesuai!");
       }
@@ -5305,12 +5125,11 @@
         const { auth, authM } = fb;
         const user = await new Promise((res) => { const off = authM.onAuthStateChanged(auth, (x) => { off(); res(x); }); });
         if (!user) return E("", { invalid: true });
-        const data = await readAll();
+        const [, prof] = await Promise.all([startLive(), user.isAnonymous ? null : ownerProfile(user.uid)]);
+        const data = liveData();
         const me = data.users.find((x) => x.id_user === saved.id_user && lower(x.username) === lower(saved.username));
-        let ok = !!me;
-        if (ok && me.role === "Owner") { const p = await ownerProfile(user.uid); ok = !!p && p.id_user === me.id_user; }
-        if (ok && me.role !== "Owner" && !user.isAnonymous) ok = false;
-        if (!ok) { await authM.signOut(auth); return E("", { invalid: true }); }
+        const ok = !!me && (me.role === "Owner" ? !!prof && prof.id_user === me.id_user : user.isAnonymous);
+        if (!ok) { stopLive(); await authM.signOut(auth); return E("", { invalid: true }); }
         return { status: "success", user: me, appData: data };
       }
 
@@ -5321,12 +5140,14 @@
         } catch (e) { return { status: "success" }; }
       }
 
-      // ---------- operasi data (setara applyOp_ di Code.gs) ----------
+      // ---------- operasi data ----------
       const customerDoc = (c) => clean({ nama_pelanggan: c.nama_pelanggan, no_hp: c.no_hp || "", alamat: c.alamat || "", total_order: Number(c.total_order) || 0, created_at: c.created_at || today() });
       const orderDoc = (o) => clean({ tanggal_order: o.tanggal_order, tanggal_ambil: o.tanggal_ambil || "", id_pelanggan: o.id_pelanggan || "",
         nama_pelanggan: o.nama_pelanggan || "", no_hp: o.no_hp || "", items: o.items || [], catatan: o.catatan || "",
         total_harga: Number(o.total_harga) || 0, total_dibayar: Number(o.total_dibayar) || 0, kembalian: Number(o.kembalian) || 0,
         status_bayar: o.status_bayar, status_order: o.status_order, riwayat_bayar: o.riwayat_bayar || [], kasir: o.kasir || "Owner Laundry" });
+      const serviceDoc = (s) => clean({ nama_layanan: s.nama_layanan, satuan: s.satuan, harga: Number(s.harga) || 0,
+        durasi_angka: Number(s.durasi_angka) || 1, durasi_satuan: s.durasi_satuan || "Hari", aktif: true });
 
       // Jalankan daftar [tipe, ref, data] dalam batch berpotongan; kembalikan promise konfirmasi server
       const commitAll = (ops) => {
@@ -5339,20 +5160,17 @@
         return Promise.all(jobs);
       };
       async function clearCol(name) {
-        const snap = await fb.fs.getDocs(col(name));
-        return { ack: commitAll(snap.docs.map((d) => ["del", d.ref])) };
+        return { ack: commitAll((await docsOf(name)).map((d) => ["del", d.ref])) };
       }
       async function replaceCol(name, items) { // items: [[id, data], ...]
-        const snap = await fb.fs.getDocs(col(name));
         const keep = new Set(items.map((i) => String(i[0])));
-        const ops = snap.docs.filter((d) => !keep.has(d.id)).map((d) => ["del", d.ref]);
+        const ops = (await docsOf(name)).filter((d) => !keep.has(d.id)).map((d) => ["del", d.ref]);
         items.forEach(([id, data]) => ops.push(["set", ref(name, id), data]));
         return { ack: commitAll(ops) };
       }
 
       async function saveUser(u) {
         const { fs, authM } = fb;
-        try { if ((await fs.getDoc(ref("users", u.id_user))).exists()) return { ack: Promise.resolve() }; } catch (e) {}
         const base = { username: u.username, username_lower: lower(u.username), nama_lengkap: u.nama_lengkap, role: u.role, created_at: u.created_at || today() };
         if (u.role !== "Owner") return { ack: fs.setDoc(ref("users", u.id_user), { ...base, password_hash: await hashPw(u.id_user, u.password) }) };
         // Owner baru = akun Firebase Auth. Dibuat lewat app sekunder agar sesi Owner yang sedang login tidak berpindah.
@@ -5368,18 +5186,19 @@
       }
 
       async function deleteUser(id) {
-        const d = await fb.fs.getDoc(ref("users", id));
+        const cached = live && live.docs.users.find((d) => d.id === id);
+        const uid = cached ? cached.data().uid : (await fb.fs.getDoc(ref("users", id))).data()?.uid;
         const b = batch();
         b.delete(ref("users", id));
-        if (d.exists() && d.data().uid) b.delete(ref("owners", d.data().uid)); // cabut hak Owner
+        if (uid) b.delete(ref("owners", uid)); // cabut hak Owner
         return { ack: b.commit() };
       }
 
       async function changePassword(username, newPass) {
         const { fs, authM, auth } = fb;
-        const snap = await fs.getDocs(fs.query(col("users"), fs.where("username_lower", "==", lower(username))));
-        if (snap.empty) throw new Error("User tidak ditemukan");
-        const d = snap.docs[0], x = d.data(), cur = auth.currentUser;
+        const d = live && live.docs.users.find((x) => x.data().username_lower === lower(username));
+        if (!d) throw new Error("User tidak ditemukan");
+        const x = d.data(), cur = auth.currentUser;
         if (x.uid) { // akun Owner: hanya pemilik akun yang bisa mengganti passwordnya (Firebase Auth)
           if (!cur || cur.uid !== x.uid) throw new Error("Password Owner hanya bisa diubah oleh pemilik akunnya.");
           await authM.updatePassword(cur, newPass);
@@ -5392,11 +5211,7 @@
         const { fs } = fb;
         switch (op.action) {
           case "saveSettings": return { ack: fs.setDoc(ref("settings", "app"), clean(op.settings || {})) };
-          case "saveService": {
-            const s = op.service;
-            return { ack: fs.setDoc(ref("services", s.id_layanan), clean({ nama_layanan: s.nama_layanan, satuan: s.satuan, harga: Number(s.harga) || 0,
-              durasi_angka: Number(s.durasi_angka) || 1, durasi_satuan: s.durasi_satuan || "Hari", aktif: true })) };
-          }
+          case "saveService": return { ack: fs.setDoc(ref("services", op.service.id_layanan), serviceDoc(op.service)) };
           case "deleteService": return { ack: fs.deleteDoc(ref("services", op.id_layanan)) };
           case "saveCustomer": return { ack: fs.setDoc(ref("customers", op.customer.id_pelanggan), customerDoc(op.customer)) };
           case "deleteCustomer": return { ack: fs.deleteDoc(ref("customers", op.id_pelanggan)) };
@@ -5421,8 +5236,7 @@
             if (!d) throw new Error("Data backup kosong");
             const jobs = [];
             if (d.settings) jobs.push((await replaceCol("settings", [["app", clean(d.settings)]])).ack);
-            if (Array.isArray(d.services)) jobs.push((await replaceCol("services", d.services.map((s) => [s.id_layanan,
-              clean({ nama_layanan: s.nama_layanan, satuan: s.satuan, harga: Number(s.harga) || 0, durasi_angka: Number(s.durasi_angka) || 1, durasi_satuan: s.durasi_satuan || "Hari", aktif: true })]))).ack);
+            if (Array.isArray(d.services)) jobs.push((await replaceCol("services", d.services.map((s) => [s.id_layanan, serviceDoc(s)]))).ack);
             if (Array.isArray(d.customers)) jobs.push((await replaceCol("customers", d.customers.map((c) => [c.id_pelanggan, customerDoc(c)]))).ack);
             if (Array.isArray(d.orders)) jobs.push((await replaceCol("orders", d.orders.map((o) => [o.no_invoice, orderDoc(o)]))).ack);
             return { ack: Promise.all(jobs) };
@@ -5446,12 +5260,11 @@
         apiLogin: wrap(apiLogin),
         apiRestore: wrap(apiRestore),
         apiWarmup: wrap(apiWarmup),
-        apiGetData: wrap(async () => ({ status: "success", data: await readAll() })),
+        apiGetData: wrap(async () => ({ status: "success", data: live ? liveData() : await readAll() })),
         apiIdle: () => chain.then(() => ({ status: "success" })),
-        apiLogout: wrap(async () => { await fb.authM.signOut(fb.auth); return { status: "success" }; }),
+        apiLogout: wrap(async () => { stopLive(); await fb.authM.signOut(fb.auth); return { status: "success" }; }),
         enqueue,
       };
     </script>
   </body>
 </html>
-
