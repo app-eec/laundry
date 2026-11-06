@@ -23,8 +23,8 @@
     messagingSenderId: "SENDER_ID",
     appId: "APP_ID",
   };
-  // Username Owner dipetakan ke email Firebase Auth: username + "@" + domain ini
-  // (harus sama dengan email admin yang didaftarkan di konsol Firebase Authentication)
+  // Username Admin dipetakan ke email Firebase Auth: username + "@" + domain ini
+  // (harus sama dengan email admin tunggal yang didaftarkan di konsol Firebase Authentication)
   const AUTH_EMAIL_DOMAIN = "eec-laundry.app";
 
   // Mode produksi: SDK Firebase mulai diunduh sekarang, paralel dengan Tailwind dan parsing HTML
@@ -118,17 +118,11 @@ to{opacity:1;transform:scale(1) translateY(0)}}
      </form>
      <div id="demo-login-helper" class="mt-6 pt-4 border-t border-slate-100">
       <p class="text-[11px] font-semibold text-slate-400 text-center mb-2.5"> Akses Cepat Akun Demo (Klik untuk Isi Otomatis): </p>
-      <div class="grid grid-cols-2 gap-2">
+      <div class="grid grid-cols-1 gap-2">
        <button type="button" onclick="fillDemoLogin('admin', 'edudigital')" class="text-left p-2.5 rounded-xl bg-indigo-50/80 hover:bg-indigo-100/80 border border-indigo-100 transition">
         <div class="text-xs font-bold text-brand flex items-center gap-1.5">
-         <i class="fa-solid fa-user-shield"></i> Owner / Admin </div>
+         <i class="fa-solid fa-user-shield"></i> Admin </div>
         <div class="text-[10px] text-slate-500 mt-0.5"> user: <b>admin</b> | pass: <b>edudigital</b>
-        </div>
-       </button>
-       <button type="button" onclick="fillDemoLogin('peserta', 'edudigital')" class="text-left p-2.5 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/80 border border-emerald-100 transition">
-        <div class="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
-         <i class="fa-solid fa-cash-register"></i> Staff Kasir </div>
-        <div class="text-[10px] text-slate-500 mt-0.5"> user: <b>peserta</b> | pass: <b>edudigital</b>
         </div>
        </button>
       </div>
@@ -149,7 +143,7 @@ to{opacity:1;transform:scale(1) translateY(0)}}
       <div class="flex items-center justify-between gap-2">
        <div>
         <p class="text-indigo-200 text-xs font-medium"> Selamat bertugas, </p>
-        <h2 class="text-lg font-extrabold tracking-tight flex items-center gap-2" id="dash-greeting-name"> Owner Laundry </h2>
+        <h2 class="text-lg font-extrabold tracking-tight flex items-center gap-2" id="dash-greeting-name"> Admin Laundry </h2>
        </div>
        <div class="flex items-center gap-2">
         <button onclick="syncFromServer()" title="Sinkronkan Data Sekarang" class="w-9 h-9 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition">
@@ -389,11 +383,11 @@ to{opacity:1;transform:scale(1) translateY(0)}}
          <i class="fa-solid fa-user"></i>
         </div>
         <div>
-         <p class="text-sm font-bold leading-tight" id="set-profile-name"> Owner Laundry </p>
+         <p class="text-sm font-bold leading-tight" id="set-profile-name"> Admin Laundry </p>
          <p class="text-xs text-indigo-100" id="set-profile-username"> @admin </p>
         </div>
        </div>
-       <span id="set-profile-role" class="text-[11px] font-bold bg-white/20 px-3 py-1 rounded-full">Owner</span>
+       <span id="set-profile-role" class="text-[11px] font-bold bg-white/20 px-3 py-1 rounded-full">Admin</span>
       </div>
      </div>
      <div class="p-4 space-y-5">
@@ -512,22 +506,8 @@ to{opacity:1;transform:scale(1) translateY(0)}}
        </div>
       </div>
       <div>
-       <h3 class="text-xs font-semibold text-slate-400 mb-2 px-1"> Manajemen User </h3>
+       <h3 class="text-xs font-semibold text-slate-400 mb-2 px-1"> Akun </h3>
        <div class="space-y-2.5">
-        <div id="menu-kelola-user" onclick="openUserManagementModal()" class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between cursor-pointer hover:border-indigo-200">
-         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-brand-soft text-brand flex items-center justify-center shrink-0">
-           <i class="fa-solid fa-users-gear text-sm"></i>
-          </div>
-          <div>
-           <p class="text-xs font-bold text-slate-800"> Kelola User </p>
-           <p class="text-[11px] text-slate-400"> Tambah, edit, atau hapus user </p>
-          </div>
-         </div>
-         <span class="w-8 h-8 rounded-lg bg-brand-soft text-brand flex items-center justify-center">
-          <i class="fa-solid fa-pen text-xs"></i>
-         </span>
-        </div>
         <div id="menu-ubah-password" onclick="openChangePasswordModal()" class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between cursor-pointer hover:border-indigo-200">
          <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-brand-soft text-brand flex items-center justify-center shrink-0">
@@ -1031,7 +1011,7 @@ to{opacity:1;transform:scale(1) translateY(0)}}
  </div>
 </div>
 <script>
-// Hanya identitas sesi login (nama, role) agar tidak logout saat refresh. Bukan data aplikasi.
+// Hanya identitas sesi login (nama) agar tidak logout saat refresh pada mode preview. Bukan data aplikasi.
 const SESSION_KEY = "EEC_LAUNDRY_POS_SESSION";
 const SETTINGS_DEFAULT = { nama_laundry: "EEC Laundry POS", alamat: "", no_hp: "", prefix_invoice: "LNDR", ukuran_printer: "A4_SINGLE" };
 const PAGE_SIZE = 10;
@@ -1049,7 +1029,6 @@ const num = (v) => Number(v) || 0;
 const sum = (list, f) => list.reduce((s, x) => s + f(x), 0);
 const owed = (o) => Math.max(0, num(o.total_harga) - num(o.total_dibayar));
 const todayISO = () => new Date().toISOString().slice(0, 10);
-const sameUser = (a, b) => String(a.username).toLowerCase() === String(b.username).toLowerCase();
 const NAME_COLLATOR = new Intl.Collator("id", { sensitivity: "base", numeric: true });
 const byName = (k) => (a, b) => NAME_COLLATOR.compare(String(a[k] || ""), String(b[k] || ""));
 const byServiceName = byName("nama_layanan");
@@ -1058,12 +1037,11 @@ const byCustomerName = byName("nama_pelanggan");
 const byNewest = (a, b) => (a.tanggal_order < b.tanggal_order ? 1 : a.tanggal_order > b.tanggal_order ? -1 : 0);
 
 // Data contoh HANYA dipakai saat IS_PREVIEW = true (in-memory, tidak ditulis ke Firestore)
+// Akun Admin tunggal untuk mode preview (di produksi akun Admin ada di Firebase Authentication)
+const ADMIN_NAME = "Admin Laundry";
+const PREVIEW_ADMIN = { username: "admin", password: "edudigital", nama_lengkap: ADMIN_NAME };
 const DEFAULT_DB = {
   settings: { ...SETTINGS_DEFAULT, alamat: "Tasikmalaya, Jawa Barat, Indonesia", no_hp: "081234567890" },
-  users: [
-    { id_user: "USR-01", username: "admin", password: "edudigital", nama_lengkap: "Owner Laundry", role: "Owner", created_at: "2026-01-01" },
-    { id_user: "USR-02", username: "peserta", password: "edudigital", nama_lengkap: "Kasir Operasional", role: "Kasir", created_at: "2026-01-01" },
-  ],
   services: [
     { id_layanan: "SVC-01", nama_layanan: "Cuci Bed Cover", satuan: "pcs", harga: 25000, durasi_angka: 3, durasi_satuan: "Hari", aktif: true },
     { id_layanan: "SVC-02", nama_layanan: "Cuci Kering", satuan: "kg", harga: 8000, durasi_angka: 2, durasi_satuan: "Hari", aktif: true },
@@ -1082,12 +1060,12 @@ const DEFAULT_DB = {
       ],
       catatan: "Pisahkan warna putih", total_harga: 47400, total_dibayar: 50000, kembalian: 2600,
       status_bayar: "LUNAS", status_order: "Pending",
-      riwayat_bayar: [{ tanggal: "2026-01-23 13:40", metode: "Cash", nominal: 50000 }], kasir: "Owner Laundry",
+      riwayat_bayar: [{ tanggal: "2026-01-23 13:40", metode: "Cash", nominal: 50000 }], kasir: "Admin Laundry",
     },
   ],
 };
 // State aplikasi hanya di memori. Mode produksi mulai kosong; seluruh data datang dari Firestore.
-let db = structuredClone(IS_PREVIEW ? DEFAULT_DB : { settings: { ...SETTINGS_DEFAULT }, users: [], services: [], customers: [], orders: [] });
+let db = structuredClone(IS_PREVIEW ? DEFAULT_DB : { settings: { ...SETTINGS_DEFAULT }, services: [], customers: [], orders: [] });
 
 // ---------- format & waktu (WIB, 24 jam) ----------
 const ID_NUM = new Intl.NumberFormat("id-ID");
@@ -1162,7 +1140,6 @@ function scheduleRefresh() {
 
 function applyRemoteData(data) {
   db = data;
-  if (currentUser && !db.users.some((u) => sameUser(u, currentUser))) return handleLogout();
   scheduleRefresh();
 }
 
@@ -1199,21 +1176,16 @@ const loadSession = () => { try { return JSON.parse(localStorage.getItem(SESSION
 function saveSession(u) {
   try {
     if (!u) return localStorage.removeItem(SESSION_KEY);
-    const { id_user, username, nama_lengkap, role } = u;
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ id_user, username, nama_lengkap, role }));
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ username: u.username, nama_lengkap: u.nama_lengkap }));
   } catch {}
 }
 
 // Mode produksi: sesi dipulihkan dari Firebase Auth lalu data ditarik dari Firestore
 async function restoreSessionFromServer() {
-  const saved = loadSession();
-  if (saved?.username) {
-    const res = await serverCall("apiRestore", saved);
-    if (res?.status === "success") {
-      db = res.appData;
-      return completeLoginSession(res.user, true);
-    }
-    if (res?.invalid) saveSession(null);
+  const res = await serverCall("apiRestore");
+  if (res?.status === "success") {
+    db = res.appData;
+    return completeLoginSession(res.user, true);
   }
   // di layar login: tampilkan nama laundry (dokumen settings/app boleh dibaca publik)
   const w = await serverCall("apiWarmup");
@@ -1225,8 +1197,7 @@ async function restoreSessionFromServer() {
 
 function restoreSession() {
   const saved = loadSession();
-  if (!saved?.username) return;
-  if (db.users.some((u) => sameUser(u, saved))) completeLoginSession(saved, true);
+  if (saved?.username === PREVIEW_ADMIN.username) completeLoginSession({ ...PREVIEW_ADMIN }, true);
   else saveSession(null);
 }
 
@@ -1249,8 +1220,8 @@ async function handleLogin(e) {
   btn.textContent = "Memverifikasi...";
   let res;
   if (IS_PREVIEW) {
-    const found = db.users.find((u) => u.username.toLowerCase() === username.toLowerCase() && (u.password === password || (u.username === "admin" && password === "admin2026")));
-    res = found ? { status: "success", user: found } : { message: "Username atau password salah!" };
+    const ok = username.toLowerCase() === PREVIEW_ADMIN.username && password === PREVIEW_ADMIN.password;
+    res = ok ? { status: "success", user: { ...PREVIEW_ADMIN } } : { message: "Username atau password salah!" };
   } else res = await serverCall("apiLogin", username, password);
   btn.disabled = false;
   btn.textContent = "Login";
@@ -1262,7 +1233,6 @@ async function handleLogin(e) {
 function completeLoginSession(user, isRestore = false) {
   currentUser = user;
   saveSession(user);
-  applyKasirLocks();
   show("screen-login", false);
   show("screen-main");
   switchMainTab("dashboard");
@@ -1271,7 +1241,6 @@ function completeLoginSession(user, isRestore = false) {
 
 function handleLogout() {
   currentUser = null;
-  applyKasirLocks();
   if (!IS_PREVIEW && window.FirebaseAPI) window.FirebaseAPI.apiLogout();
   saveSession(null);
   $("login-password").value = "";
@@ -1395,7 +1364,7 @@ function buildOrderCardHTML(order) {
 <span class="text-xs font-extrabold text-brand tracking-tight">${order.no_invoice}</span>
 <div class="flex items-center gap-1.5">
 ${getStatusBadgeHTML(order.status_order)}
-<button ${isKasirUser() ? 'disabled style="opacity:.4;cursor:not-allowed;pointer-events:none"' : ""} onclick="event.stopPropagation(); confirmDeleteOrder('${order.no_invoice}')" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center text-xs transition" title="Hapus Order">
+<button onclick="event.stopPropagation(); confirmDeleteOrder('${order.no_invoice}')" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center text-xs transition" title="Hapus Order">
 <i class="fa-regular fa-trash-can"></i>
 </button>
 </div>
@@ -1649,7 +1618,7 @@ function submitNewOrder() {
     catatan: val("new-order-notes"), total_harga: totalHarga, total_dibayar: payAmount, kembalian: lunas ? payAmount - totalHarga : 0,
     status_bayar: lunas ? "LUNAS" : "BELUM BAYAR", status_order: "Pending",
     riwayat_bayar: payAmount > 0 ? [{ tanggal: formatDateTimeID(nowISO), metode: $("new-order-pay-method").value, nominal: payAmount }] : [],
-    kasir: currentUser ? currentUser.nama_lengkap : "Owner Laundry",
+    kasir: currentUser ? currentUser.nama_lengkap : ADMIN_NAME,
   };
   db.orders.unshift(order);
   currentOrdersPage = 1;
@@ -1815,12 +1784,10 @@ function confirmDialog(icon, title, text, action, yes = "Ya, Hapus") {
 }
 
 function confirmDeleteOrder(invoiceNo) {
-  if (denyKasir()) return;
   confirmDialog("fa-regular fa-trash-can", `Hapus Order ${invoiceNo}?`, "Data transaksi yang dihapus tidak dapat dikembalikan.", `executeDeleteOrder('${invoiceNo}')`);
 }
 
 function executeDeleteOrder(invoiceNo) {
-  if (denyKasir()) return;
   db.orders = db.orders.filter((o) => o.no_invoice !== invoiceNo);
   queueOp("deleteOrder", { no_invoice: invoiceNo });
   closeGenericModal();
@@ -1830,13 +1797,11 @@ function executeDeleteOrder(invoiceNo) {
 }
 
 function confirmDeleteAllOrders() {
-  if (denyKasir()) return;
   if (!db.orders.length) return showToast("Tidak ada data order untuk dihapus", true);
   confirmDialog("fa-solid fa-trash-can", `Hapus Semua Orders (${db.orders.length} Data)?`, "Seluruh data transaksi order akan dihapus secara permanen dan tidak dapat dikembalikan.", "executeDeleteAllOrders()", "Ya, Hapus Semua");
 }
 
 function executeDeleteAllOrders() {
-  if (denyKasir()) return;
   db.orders = [];
   currentOrdersPage = 1;
   queueOp("deleteAllOrders");
@@ -2253,7 +2218,7 @@ function toggleAddCustomerForm(on = true, custId = null) {
 
 function renderCustomerList() {
   const q = $("cust-search-input").value.toLowerCase().trim();
-  const pick = currentCustomerModalMode === "pick", kasir = isKasirUser();
+  const pick = currentCustomerModalMode === "pick";
   const editingId = $("cust-form-box").classList.contains("hidden") ? "" : $("cust-id-edit").value;
   currentCustomerPage = renderPaged({
     list: db.customers.filter((c) => [c.nama_pelanggan, c.no_hp, c.alamat].some((v) => String(v || "").toLowerCase().includes(q))).sort(byCustomerName),
@@ -2273,7 +2238,7 @@ ${pick
   ? `<span class="text-xs font-bold text-brand bg-brand-soft px-3 py-1 rounded-xl shrink-0">Pilih</span>`
   : `<div class="flex items-center gap-1 shrink-0">
 <button type="button" onclick="event.stopPropagation(); toggleAddCustomerForm(true, '${c.id_pelanggan}')" class="w-8 h-8 rounded-lg hover:bg-indigo-50 text-slate-500 hover:text-brand flex items-center justify-center transition" title="Edit Pelanggan"><i class="fa-solid fa-pen text-xs"></i></button>
-<button type="button" ${kasir ? 'disabled style="opacity:.4;cursor:not-allowed;pointer-events:none"' : ""} onclick="event.stopPropagation(); deleteCustomer('${c.id_pelanggan}')" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-rose-500 flex items-center justify-center transition" title="Hapus Pelanggan"><i class="fa-regular fa-trash-can text-xs"></i></button>
+<button type="button" onclick="event.stopPropagation(); deleteCustomer('${c.id_pelanggan}')" class="w-8 h-8 rounded-lg hover:bg-rose-50 text-rose-500 flex items-center justify-center transition" title="Hapus Pelanggan"><i class="fa-regular fa-trash-can text-xs"></i></button>
 </div>`}
 </div>`,
   });
@@ -2307,7 +2272,6 @@ function saveCustomerData() {
 }
 
 function deleteCustomer(custId) {
-  if (denyKasir()) return;
   db.customers = db.customers.filter((c) => c.id_pelanggan !== custId);
   queueOp("deleteCustomer", { id_pelanggan: custId });
   toggleAddCustomerForm(false);
@@ -2316,13 +2280,11 @@ function deleteCustomer(custId) {
 }
 
 function confirmDeleteAllCustomers() {
-  if (denyKasir()) return;
   if (!db.customers.length) return showToast("Tidak ada data pelanggan", true);
   confirmDialog("fa-solid fa-users-slash", `Hapus Semua Pelanggan (${db.customers.length} Data)?`, "Seluruh data pelanggan akan dihapus secara permanen.", "executeDeleteAllCustomers()", "Ya, Hapus Semua");
 }
 
 function executeDeleteAllCustomers() {
-  if (denyKasir()) return;
   db.customers = [];
   currentCustomerPage = 1;
   queueOp("deleteAllCustomers");
@@ -2338,7 +2300,6 @@ function renderSettingsTab() {
   if (currentUser) {
     $("set-profile-name").textContent = currentUser.nama_lengkap;
     $("set-profile-username").textContent = "@" + currentUser.username;
-    $("set-profile-role").textContent = currentUser.role;
   }
   const s = db.settings;
   $("set-val-nama").textContent = s.nama_laundry || "EEC Laundry POS";
@@ -2346,7 +2307,6 @@ function renderSettingsTab() {
   $("set-val-hp").textContent = s.no_hp || "-";
   $("set-val-prefix").textContent = s.prefix_invoice || "LNDR";
   $("set-val-printer").textContent = "Kertas A4 (210 x 297 mm) - 1 Bagian";
-  applyKasirLocks();
 }
 
 const showGeneric = (html) => {
@@ -2357,33 +2317,7 @@ const closeGenericModal = () => show("modal-generic", false);
 const genericHead = (title) =>
   `<div class="flex items-center justify-between"><h3 class="text-sm font-bold text-slate-800">${title}</h3><button onclick="closeGenericModal()" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button></div>`;
 
-const isKasirUser = () => !!currentUser && String(currentUser.role || "").trim().toLowerCase() === "kasir";
-function denyKasir() {
-  const k = isKasirUser();
-  if (k) showToast("Hanya Owner/Admin!", true);
-  return k;
-}
-
-// Kasir: kunci Prefix Invoice, Printer, Kelola User, Ubah Password, Backup, Restore, dan semua tombol hapus.
-// Elemen tetap tampil tetapi dinonaktifkan.
-function applyKasirLocks() {
-  const k = isKasirUser();
-  ["btn-edit-nama", "btn-edit-alamat", "btn-edit-hp", "btn-edit-prefix", "btn-delete-all-orders", "btn-delete-all-customers"].forEach((id) => {
-    const el = $(id);
-    el.disabled = k;
-    el.style.opacity = k ? "0.4" : "";
-    el.style.cursor = k ? "not-allowed" : "";
-    el.style.pointerEvents = k ? "none" : "";
-  });
-  ["menu-kelola-user", "menu-printer", "menu-ubah-password", "menu-backup", "menu-restore"].forEach((id) => {
-    const row = $(id), pen = row.querySelector(".w-8.h-8");
-    row.style.pointerEvents = k ? "none" : "";
-    if (pen) pen.style.opacity = k ? "0.4" : "";
-  });
-}
-
 function openEditSettingModal(key, title) {
-  if (denyKasir()) return;
   showGeneric(`${genericHead(`Ubah ${title}`)}
 <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">${title}</label><input type="text" id="generic-setting-input" value="${db.settings[key] || ""}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:border-brand" /></div>
 <div class="flex gap-2"><button onclick="closeGenericModal()" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600">Batal</button><button onclick="saveSettingItem('${key}')" class="flex-1 py-2.5 rounded-xl bg-brand text-white text-xs font-bold">Simpan</button></div>`);
@@ -2400,7 +2334,6 @@ function saveSettingItem(key) {
 }
 
 function openPrinterSettingModal() {
-  if (denyKasir()) return;
   showGeneric(`${genericHead("Pengaturan Kertas Printer (A4)")}
 <div class="space-y-3">
 <div>
@@ -2415,7 +2348,6 @@ function openPrinterSettingModal() {
 }
 
 function savePrinterSetting() {
-  if (denyKasir()) return;
   db.settings.ukuran_printer = $("printer-size-select").value;
   queueOp("saveSettings", { settings: db.settings });
   closeGenericModal();
@@ -2423,43 +2355,7 @@ function savePrinterSetting() {
   showToast("Pengaturan printer disimpan");
 }
 
-function openUserManagementModal() {
-  if (denyKasir()) return;
-  const rows = db.users.map((u) => `<div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
-<div><p class="text-xs font-bold text-slate-800">${u.nama_lengkap} <span class="text-[10px] text-brand font-extrabold">(${u.role})</span></p><p class="text-[10px] text-slate-400">username: <b>${u.username}</b></p></div>
-${u.username !== "admin" ? `<button onclick="deleteUserAccount('${u.id_user}')" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center text-xs"><i class="fa-regular fa-trash-can"></i></button>` : `<span class="text-[10px] bg-indigo-100 text-brand px-2 py-0.5 rounded font-bold">Utama</span>`}
-</div>`).join("");
-  const field = (id, ph) => `<input type="text" id="${id}" placeholder="${ph}" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />`;
-  showGeneric(`${genericHead("Kelola User")}
-<div class="space-y-2 max-h-44 overflow-y-auto custom-scroll">${rows}</div>
-<div class="pt-3 border-t border-slate-100 space-y-2">
-<p class="text-xs font-bold text-slate-700">Tambah User Baru</p>
-${field("new-user-fullname", "Nama Lengkap")}
-<div class="grid grid-cols-2 gap-2">${field("new-user-username", "Username")}${field("new-user-password", "Password")}</div>
-<select id="new-user-role" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold"><option value="Kasir">Kasir</option><option value="Owner">Owner</option></select>
-<button onclick="addNewUserAccount()" class="w-full py-2.5 rounded-xl bg-brand text-white text-xs font-bold">+ Tambah User</button>
-</div>`);
-}
-
-function addNewUserAccount() {
-  const nama = val("new-user-fullname"), username = val("new-user-username"), password = val("new-user-password");
-  if (!nama || !username || !password) return showToast("Lengkapi kolom user baru", true);
-  const user = { id_user: "USR-" + Date.now().toString().slice(-4), username, password, nama_lengkap: nama, role: $("new-user-role").value, created_at: todayISO() };
-  db.users.push(IS_PREVIEW ? user : { ...user, password: undefined });
-  queueOp("saveUser", { user });
-  openUserManagementModal();
-  showToast("User ditambahkan");
-}
-
-function deleteUserAccount(userId) {
-  db.users = db.users.filter((u) => u.id_user !== userId);
-  queueOp("deleteUser", { id_user: userId });
-  openUserManagementModal();
-  showToast("User dihapus");
-}
-
 function openChangePasswordModal() {
-  if (denyKasir()) return;
   const field = (id, ph) => `<input type="password" id="${id}" placeholder="${ph}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs" />`;
   showGeneric(`${genericHead("Ubah Password")}
 <div class="space-y-2.5">${field("cp-old", "Password Lama")}${field("cp-new", "Password Baru")}</div>
@@ -2467,19 +2363,15 @@ function openChangePasswordModal() {
 }
 
 function saveNewPassword() {
-  if (denyKasir()) return;
   const newP = val("cp-new");
   if (newP.length < 4) return showToast("Minimal 4 karakter", true);
-  const user = db.users.find((u) => u.username === currentUser.username);
-  if (!user) return;
-  if (IS_PREVIEW) user.password = currentUser.password = newP;
-  queueOp("changePassword", { username: currentUser.username, new_password: newP });
+  if (IS_PREVIEW) PREVIEW_ADMIN.password = currentUser.password = newP;
+  queueOp("changePassword", { new_password: newP });
   closeGenericModal();
   showToast("Password diperbarui");
 }
 
 function backupDatabaseJSON() {
-  if (denyKasir()) return;
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type: "application/json" }));
   a.download = `Backup_EEC_Laundry_${todayISO()}.json`;
@@ -2488,7 +2380,6 @@ function backupDatabaseJSON() {
 }
 
 function restoreDatabaseJSON(event) {
-  if (denyKasir()) return (event.target.value = "");
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -2524,7 +2415,7 @@ function openAboutModal() {
 // sejak <head> (FB_LOAD), paralel dengan Tailwind dan parsing HTML.
 // ======================================================================
 const CHUNK = 400; // batas aman < 500 operasi per batch Firestore
-const NAMES = ["users", "settings", "services", "customers", "orders"];
+const NAMES = ["settings", "services", "customers", "orders"];
 let fb = null;
 let live = null; // { docs, data, unsubs } selama sesi login aktif
 
@@ -2537,7 +2428,7 @@ const ready = IS_PREVIEW ? Promise.resolve() : FB_LOAD.then(([appM, authM, fs]) 
       experimentalAutoDetectLongPolling: true,
     });
   } catch { store = fs.getFirestore(app); }
-  // initializeAuth tanpa popup/redirect resolver: tidak memuat iframe auth yang tidak dipakai (hanya email & anonim)
+  // initializeAuth tanpa popup/redirect resolver: tidak memuat iframe auth yang tidak dipakai (hanya email/password)
   const auth = authM.initializeAuth(app, { persistence: [authM.indexedDBLocalPersistence, authM.browserLocalPersistence] });
   fb = { appM, authM, fs, store, auth };
 });
@@ -2552,17 +2443,11 @@ const lower = (s) => String(s || "").trim().toLowerCase();
 const emailOf = (u) => (u.includes("@") ? u : u + "@" + AUTH_EMAIL_DOMAIN);
 const E = (message, extra) => ({ status: "error", message, ...extra });
 const A = (ack) => ({ ack }); // ack = promise konfirmasi server; antrean tidak menunggunya
-const hashPw = async (id, pw) => {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("eec-pos:" + id + ":" + pw));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-};
 const ERRORS = {
-  "auth/email-already-in-use": "Username Owner sudah terdaftar.",
-  "auth/weak-password": "Password akun Owner minimal 6 karakter.",
-  "auth/invalid-email": "Username Owner tidak valid (tanpa spasi).",
+  "auth/weak-password": "Password Admin minimal 6 karakter.",
+  "auth/invalid-email": "Username tidak valid (tanpa spasi).",
   "auth/requires-recent-login": "Sesi terlalu lama. Login ulang lalu ubah password.",
-  "auth/operation-not-allowed": "Aktifkan Email/Password dan Anonymous di Firebase Authentication.",
-  "auth/admin-restricted-operation": "Aktifkan Email/Password dan Anonymous di Firebase Authentication.",
+  "auth/operation-not-allowed": "Aktifkan metode Email/Password di Firebase Authentication.",
   "auth/network-request-failed": "Koneksi server terputus.",
   unavailable: "Koneksi server terputus.",
 };
@@ -2572,7 +2457,8 @@ const msg = (e) => {
   if (c.includes("permission-denied")) return "Akses ditolak oleh Firestore Rules.";
   return ERRORS[c] || (e && e.message) || "Terjadi kesalahan.";
 };
-const pub = (id, x) => ({ id_user: id, username: x.username || "", nama_lengkap: x.nama_lengkap || "", role: x.role || "Kasir", created_at: x.created_at || "" });
+// Profil Admin tunggal diturunkan dari akun Firebase Auth (tanpa koleksi users)
+const adminProfile = (user) => ({ username: String(user.email || "").split("@")[0], nama_lengkap: ADMIN_NAME });
 
 // ---------- bentuk dokumen <-> data aplikasi (satu definisi untuk baca dan tulis) ----------
 const ID = { services: "id_layanan", customers: "id_pelanggan", orders: "no_invoice" };
@@ -2584,7 +2470,7 @@ const SHAPE = {
     nama_pelanggan: x.nama_pelanggan || "", no_hp: x.no_hp || "", items: Array.isArray(x.items) ? x.items : [], catatan: x.catatan || "",
     total_harga: num(x.total_harga), total_dibayar: num(x.total_dibayar), kembalian: num(x.kembalian),
     status_bayar: x.status_bayar || "BELUM BAYAR", status_order: x.status_order || "Pending",
-    riwayat_bayar: Array.isArray(x.riwayat_bayar) ? x.riwayat_bayar : [], kasir: x.kasir || "Owner Laundry",
+    riwayat_bayar: Array.isArray(x.riwayat_bayar) ? x.riwayat_bayar : [], kasir: x.kasir || ADMIN_NAME,
   }),
 };
 const fromDoc = (n) => (d) => ({ [ID[n]]: d.id, ...SHAPE[n](d.data()) });
@@ -2597,7 +2483,6 @@ const toDoc = {
 // ---------- listener realtime ----------
 // Setiap koleksi dipetakan SEKALI saat snapshot-nya datang; perubahan satu koleksi tidak memetakan ulang koleksi lain.
 const mapDocs = {
-  users: (docs) => docs.map((d) => pub(d.id, d.data())),
   settings: (docs) => Object.assign({ ...SETTINGS_DEFAULT }, ...docs.filter((d) => d.id === "app").map((d) => d.data())),
   services: (docs) => docs.map(fromDoc("services")),
   customers: (docs) => docs.map(fromDoc("customers")),
@@ -2605,9 +2490,9 @@ const mapDocs = {
 };
 const stopLive = () => { if (live) live.unsubs.forEach((f) => f()); live = null; };
 // Salinan dangkal agar perubahan lokal aplikasi (unshift/push) tidak mencemari cache pemetaan
-const liveData = () => ({ ...live.data, settings: { ...live.data.settings }, users: live.data.users.slice(), services: live.data.services.slice(), customers: live.data.customers.slice(), orders: live.data.orders.slice() });
+const liveData = () => ({ ...live.data, settings: { ...live.data.settings }, services: live.data.services.slice(), customers: live.data.customers.slice(), orders: live.data.orders.slice() });
 
-// Resolve setelah kelima koleksi terbaca; perubahan berikutnya diteruskan ke applyRemoteData (Index).
+// Resolve setelah keempat koleksi terbaca; perubahan berikutnya diteruskan ke applyRemoteData (Index).
 function startLive() {
   stopLive();
   const l = (live = { docs: {}, data: {}, unsubs: [] });
@@ -2626,74 +2511,32 @@ function startLive() {
 }
 const docsOf = async (n) => (live && live.docs[n]) || (await fb.fs.getDocs(col(n))).docs;
 
-// ---------- login hybrid: Owner = Firebase Auth, Kasir = validasi di Firestore ----------
-// Profil Owner dicari dari daftar users yang sudah dimuat listener (field uid), tanpa baca ke server.
-// Cadangan: koleksi owners, untuk data lama yang belum punya field uid.
-async function ownerProfile(uid) {
-  const d = live.docs.users.find((x) => x.data().uid === uid);
-  if (d) return pub(d.id, d.data());
-  const o = await fb.fs.getDoc(ref("owners", uid));
-  if (!o.exists()) return null;
-  const u = await fb.fs.getDoc(ref("users", o.data().id_user));
-  return u.exists() ? pub(u.id, u.data()) : null;
-}
-
-// Owner pertama (didaftarkan manual di konsol Auth) otomatis dibuatkan profil saat login pertama.
-// Hanya berhasil bila Firestore Rules mengizinkan (akun super-admin).
-async function bootstrapOwner(user, uname) {
-  try {
-    const { fs } = fb;
-    if ((await fs.getDoc(ref("owners", user.uid))).exists()) return null;
-    let id = "USR-01";
-    if ((await fs.getDoc(ref("users", id))).exists()) id = "USR-" + String(Date.now()).slice(-4);
-    const username = uname.split("@")[0];
-    const x = { username, username_lower: lower(username), nama_lengkap: "Owner Laundry", role: "Owner", created_at: todayISO(), uid: user.uid, email: user.email };
-    const b = batch();
-    b.set(ref("users", id), x);
-    b.set(ref("owners", user.uid), { id_user: id });
-    await b.commit();
-    return pub(id, x);
-  } catch { return null; }
-}
-
+// ---------- login Admin tunggal (Firebase Auth email/password) ----------
 async function apiLogin(username, password) {
   const { auth, authM } = fb;
   const u = lower(username), p = String(password || "").trim();
   if (!u || !p) return E("Username atau password tidak sesuai!");
   if (auth.currentUser) { stopLive(); await authM.signOut(auth); }
 
-  let cred = null;
+  let cred;
   try { cred = await authM.signInWithEmailAndPassword(auth, emailOf(u), p); }
-  catch (e) { if (e.code === "auth/network-request-failed") return E("Koneksi server terputus."); }
-  if (!cred) await authM.signInAnonymously(auth); // Kasir: token anonim hanya "tiket" koneksi
-  await startLive();
-
-  let me = null;
-  if (cred) me = (await ownerProfile(cred.user.uid)) || (await bootstrapOwner(cred.user, u));
-  else // kredensial Kasir divalidasi terhadap users yang sudah terbaca listener (tanpa query tambahan)
-    for (const d of live.docs.users) {
-      const x = d.data();
-      if (x.username_lower === u && x.password_hash && x.password_hash === (await hashPw(d.id, p))) { me = pub(d.id, x); break; }
-    }
-  if (!me) {
-    stopLive();
-    await authM.signOut(auth);
-    return E(cred ? "Akun Owner tidak aktif. Hubungi administrator." : "Username atau password tidak sesuai!");
+  catch (e) {
+    if (e.code === "auth/network-request-failed") return E("Koneksi server terputus.");
+    return E("Username atau password tidak sesuai!");
   }
-  return { status: "success", user: me, appData: liveData() };
+  try { await startLive(); } // hanya akun Admin yang lolos Firestore Rules
+  catch { stopLive(); await authM.signOut(auth); return E("Akun ini tidak memiliki akses Admin."); }
+  return { status: "success", user: adminProfile(cred.user), appData: liveData() };
 }
 
 // Memulihkan sesi setelah reload (sesi Firebase tersimpan otomatis oleh Firebase Auth)
-async function apiRestore(saved) {
+async function apiRestore() {
   const { auth, authM } = fb;
   const user = await new Promise((res) => { const off = authM.onAuthStateChanged(auth, (x) => { off(); res(x); }); });
   if (!user) return E("", { invalid: true });
-  await startLive();
-  const data = liveData();
-  const me = data.users.find((x) => x.id_user === saved.id_user && lower(x.username) === lower(saved.username));
-  const ok = !!me && (me.role === "Owner" ? !user.isAnonymous && (await ownerProfile(user.uid))?.id_user === me.id_user : user.isAnonymous);
-  if (!ok) { stopLive(); await authM.signOut(auth); return E("", { invalid: true }); }
-  return { status: "success", user: me, appData: data };
+  try { await startLive(); }
+  catch { stopLive(); await authM.signOut(auth); return E("", { invalid: true }); }
+  return { status: "success", user: adminProfile(user), appData: liveData() };
 }
 
 async function apiWarmup() {
@@ -2720,38 +2563,10 @@ async function replaceCol(name, items) { // items: [[id, data], ...]
   return A(commitAll(ops));
 }
 
-async function saveUser(u) {
-  const { fs, authM, appM } = fb;
-  const base = { username: u.username, username_lower: lower(u.username), nama_lengkap: u.nama_lengkap, role: u.role, created_at: u.created_at || todayISO() };
-  if (u.role !== "Owner") return A(fs.setDoc(ref("users", u.id_user), { ...base, password_hash: await hashPw(u.id_user, u.password) }));
-  // Owner baru = akun Firebase Auth. Dibuat lewat app sekunder agar sesi Owner yang sedang login tidak berpindah.
-  const secAuth = (fb.secAuth ||= authM.initializeAuth(appM.initializeApp(firebaseConfig, "secondary"), { persistence: authM.inMemoryPersistence }));
-  const email = emailOf(base.username_lower);
-  const cred = await authM.createUserWithEmailAndPassword(secAuth, email, u.password);
-  await authM.signOut(secAuth);
-  const b = batch();
-  b.set(ref("users", u.id_user), { ...base, uid: cred.user.uid, email });
-  b.set(ref("owners", cred.user.uid), { id_user: u.id_user });
-  return A(b.commit());
-}
-
-function deleteUser(id) {
-  const uid = live?.docs.users.find((d) => d.id === id)?.data().uid;
-  const b = batch();
-  b.delete(ref("users", id));
-  if (uid) b.delete(ref("owners", uid)); // cabut hak Owner
-  return A(b.commit());
-}
-
-async function changePassword(username, newPass) {
-  const { fs, authM, auth } = fb;
-  const d = live?.docs.users.find((x) => x.data().username_lower === lower(username));
-  if (!d) throw new Error("User tidak ditemukan");
-  const x = d.data(), cur = auth.currentUser;
-  if (!x.uid) return A(fs.updateDoc(d.ref, { password_hash: await hashPw(d.id, newPass) }));
-  // akun Owner: hanya pemilik akun yang bisa mengganti passwordnya (Firebase Auth)
-  if (!cur || cur.uid !== x.uid) throw new Error("Password Owner hanya bisa diubah oleh pemilik akunnya.");
-  await authM.updatePassword(cur, newPass);
+async function changePassword(newPass) {
+  const { authM, auth } = fb;
+  if (!auth.currentUser) throw new Error("Sesi login tidak ditemukan.");
+  await authM.updatePassword(auth.currentUser, newPass);
   return A(Promise.resolve());
 }
 
@@ -2784,9 +2599,7 @@ const OPS = {
   addOrderPayment: (o) => upd("orders", o.no_invoice, clean({ total_dibayar: num(o.total_dibayar), kembalian: num(o.kembalian), status_bayar: o.status_bayar, riwayat_bayar: o.riwayat_bayar || [] })),
   deleteOrder: (o) => del("orders", o.no_invoice),
   deleteAllOrders: () => clearCol("orders"),
-  saveUser: (o) => saveUser(o.user),
-  deleteUser: (o) => deleteUser(o.id_user),
-  changePassword: (o) => changePassword(o.username, o.new_password),
+  changePassword: (o) => changePassword(o.new_password),
   restoreBackup,
 };
 
