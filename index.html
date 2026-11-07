@@ -119,10 +119,10 @@ to{opacity:1;transform:scale(1) translateY(0)}}
      <div id="demo-login-helper" class="mt-6 pt-4 border-t border-slate-100">
       <p class="text-[11px] font-semibold text-slate-400 text-center mb-2.5"> Akses Cepat Akun Demo (Klik untuk Isi Otomatis): </p>
       <div class="grid grid-cols-1 gap-2">
-       <button type="button" onclick="fillDemoLogin('admin', 'edudigital')" class="text-left p-2.5 rounded-xl bg-indigo-50/80 hover:bg-indigo-100/80 border border-indigo-100 transition">
+       <button type="button" onclick="fillDemoLogin('admin', 'admin@laundry.com')" class="text-left p-2.5 rounded-xl bg-indigo-50/80 hover:bg-indigo-100/80 border border-indigo-100 transition">
         <div class="text-xs font-bold text-brand flex items-center gap-1.5">
          <i class="fa-solid fa-user-shield"></i> Admin </div>
-        <div class="text-[10px] text-slate-500 mt-0.5"> user: <b>admin</b> | pass: <b>edudigital</b>
+        <div class="text-[10px] text-slate-500 mt-0.5"> user: <b>admin</b> | pass: <b>admin@laundry.com</b>
         </div>
        </button>
       </div>
@@ -1039,7 +1039,7 @@ const byNewest = (a, b) => (a.tanggal_order < b.tanggal_order ? 1 : a.tanggal_or
 // Data contoh HANYA dipakai saat IS_PREVIEW = true (in-memory, tidak ditulis ke Firestore)
 // Akun Admin tunggal untuk mode preview (di produksi akun Admin ada di Firebase Authentication)
 const ADMIN_NAME = "Admin Laundry";
-const PREVIEW_ADMIN = { username: "admin", password: "edudigital", nama_lengkap: ADMIN_NAME };
+const PREVIEW_ADMIN = { username: "admin", password: "admin@laundry.com", nama_lengkap: ADMIN_NAME };
 const DEFAULT_DB = {
   settings: { ...SETTINGS_DEFAULT, alamat: "Tasikmalaya, Jawa Barat, Indonesia", no_hp: "081234567890" },
   services: [
